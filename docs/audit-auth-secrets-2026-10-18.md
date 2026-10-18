@@ -65,6 +65,20 @@ objects are rejected with a sanitized 400 and cannot reach downstream
 callbacks. Both cases have RED→GREEN tests. Updated focused suite:
 **13 pass, 40 assertions** under Bun 1.3.11; GitHub verifies on 1.4.3.
 
+## Actual HTTP loopback regression
+
+The security suite also tests a disposable `127.0.0.1` HTTP server,
+exercising the real Node/Bun request stream rather than mock event emitters.
+Three tests send valid UTF-8 split in the middle of a multi-byte character,
+invalid byte sequences, and an over-limit chunked JSON body with synthetic
+secrets. They check 200, 400 and 413 respectively without contacting any
+user service or external identity provider.
+
+Locally the four focused security files now pass **16 tests and 47
+assertions**. The unchanged base-to-PR TypeScript comparison remains
+**970 vs 968**, with no newly introduced diagnostic identities. Strict
+TypeScript remains a blocking NO-GO until the wider type debt is corrected.
+
 ## Toolchain determinism
 
 The original callable PR test workflow passed on Bun **1.4.3** while the
