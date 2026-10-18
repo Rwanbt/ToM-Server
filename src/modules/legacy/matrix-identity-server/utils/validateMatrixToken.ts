@@ -50,8 +50,9 @@ const validateMatrixToken = (logger: TwakeLogger) => {
               }
             })
             // istanbul ignore next
-            .catch((e) => {
-              logger.warn('Token rejected', e)
+            .catch(() => {
+              // HTTP client exceptions can embed the access_token query string.
+              logger.warn('Token rejected')
               reject('Token rejected')
             })
         })

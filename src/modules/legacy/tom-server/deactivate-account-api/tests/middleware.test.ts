@@ -27,7 +27,7 @@ const mockConfig = {
   admin_access_token: 'secret'
 }
 
-const nextFunction: NextFunction = mock()
+const nextFunction = mock()
 const middleware = new Middleware(
   mockConfig as unknown as Config,
   dbMock as unknown as MatrixDBBackend,

@@ -71,4 +71,15 @@ describe('identity token logs must never expose bearer credentials', () => {
     expect(await done).toBe(401)
     expect(loggedText(entries)).not.toContain(SECRET)
   })
+
+  it('rejects a stored token without a valid Matrix subject', async () => {
+    const { logger } = logging()
+    const { res } = response()
+    const callback = mock()
+    const db = { get: mock().mockResolvedValue([{ data: JSON.stringify({ role: 'admin' }) }]) }
+    Authenticate(db as never, logger as never)(request() as never, res as never, callback, false)
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(callback).not.toHaveBeenCalled()
+  })
 })

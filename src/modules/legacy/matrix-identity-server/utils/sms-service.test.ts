@@ -14,6 +14,13 @@ const mockConfig = {
   sms_api_url: 'http://localhost/sms/api'
 }
 
+// Test doubles must implement Bun's fetch.preconnect contract. Real Response
+// objects additionally exercise the same status/json paths as HTTP responses.
+const mockFetch = (status: number, body: object = {}) =>
+  Object.assign(mock(async () => new Response(JSON.stringify(body), { status })), {
+    preconnect: () => {}
+  })
+
 describe('the SMS service', () => {
   const smsService = new SmsService(
     mockConfig as Config,
@@ -22,24 +29,14 @@ describe('the SMS service', () => {
 
   describe('the send method', () => {
     it('should send a SMS', async () => {
-      global.fetch = mock().mockImplementation(() => {
-        return Promise.resolve({
-          json: () => Promise.resolve({ success: true }),
-          status: 200
-        })
-      })
+      global.fetch = mockFetch(200, { success: true })
 
       await smsService.send('test', 'test')
       expect(loggerMock.error).not.toHaveBeenCalled()
     })
 
     it('should log an error when failed to send SMS', async () => {
-      global.fetch = mock().mockImplementation(() => {
-        return Promise.resolve({
-          json: () => Promise.resolve({}),
-          status: 401
-        })
-      })
+      global.fetch = mockFetch(401)
 
       await smsService.send('test', 'test')
 
@@ -50,12 +47,7 @@ describe('the SMS service', () => {
     })
 
     it('should call the API endpoint with correct parameters', async () => {
-      global.fetch = mock().mockImplementation(() => {
-        return Promise.resolve({
-          json: () => Promise.resolve({ success: true }),
-          status: 200
-        })
-      })
+      global.fetch = mockFetch(200, { success: true })
 
       await smsService.send('+330744556688', 'test sms')
 

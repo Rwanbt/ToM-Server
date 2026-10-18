@@ -102,9 +102,9 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
       }
       const names: string[] = []
       const vals: Array<string | number> = []
-      Object.keys(values).forEach((k) => {
+      Object.entries(values).forEach(([k, v]) => {
         names.push(k)
-        vals.push(values[k])
+        vals.push(v)
       })
       const query = `INSERT INTO ${table}(${names.join(',')}) VALUES(${names
         .map((v) => '?')
@@ -163,9 +163,9 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
       }
       const names: string[] = []
       const vals: Array<string | number> = []
-      Object.keys(values).forEach((k) => {
+      Object.entries(values).forEach(([k, v]) => {
         names.push(k)
-        vals.push(values[k])
+        vals.push(v)
       })
       vals.push(value)
       const query = `UPDATE ${table} SET ${names.join(
@@ -326,11 +326,11 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
                 filterFields[key].toString() !== [].toString()
             )
             .forEach((key) => {
+              const filterValue = filterFields[key]
+              if (filterValue == null) return
               localCondition += localCondition !== '' ? ' AND ' : ''
-              if (Array.isArray(filterFields[key])) {
-                localCondition += `(${(
-                  filterFields[key] as Array<string | number>
-                )
+              if (Array.isArray(filterValue)) {
+                localCondition += `(${filterValue
                   .map((val) => {
                     index++
                     values.push(val.toString())
@@ -339,7 +339,7 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
                   .join(' OR ')})`
               } else {
                 index++
-                values.push(filterFields[key].toString())
+                values.push(filterValue.toString())
                 localCondition += `${key}${op}$${index}`
               }
             })

@@ -24,7 +24,7 @@ declare module 'express-serve-static-core' {
   }
 }
 
-export const defaultConfig = defaultConfDesc
+export const defaultConfig: typeof defaultConfDesc = defaultConfDesc
 
 export default class TwakeVaultAPI {
   endpoints: Router

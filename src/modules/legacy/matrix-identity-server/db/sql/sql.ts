@@ -59,7 +59,12 @@ abstract class SQL<T extends string> {
       // @ts-expect-error implemented later
       this.get(...args)
         .then((rows: Array<Record<string, string>>) => {
-          resolve(parseInt(rows[0].count))
+          const count = rows?.[0]?.count
+          if (typeof count !== 'string' || !/^\d+$/.test(count)) {
+            reject(new Error('Database count response is missing or malformed'))
+            return
+          }
+          resolve(parseInt(count, 10))
         })
         .catch((e: any) => {
           /* istanbul ignore next */

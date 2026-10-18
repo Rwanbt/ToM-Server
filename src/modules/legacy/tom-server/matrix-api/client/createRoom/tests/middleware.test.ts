@@ -23,7 +23,7 @@ const validPresets = [
   'public_channel'
 ]
 
-const nextFunction: NextFunction = mock()
+const nextFunction = mock()
 const middleware = new Middleware(
   loggerMock as unknown as TwakeLogger,
   validPresets,

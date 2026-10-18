@@ -74,7 +74,7 @@ class MatrixDB implements MatrixDBBackend {
   }
 
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/promise-function-async
-  getAll(table: Collections, fields: string[]) {
+  getAll(table: Collections, fields: string[]): Promise<DbGetResult> {
     return this.db.getAll(table, fields)
   }
 

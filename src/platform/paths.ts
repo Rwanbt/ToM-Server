@@ -44,7 +44,10 @@ const baseShareDirs: string[] = isWindows ? winBaseDirs : linuxShareBaseDirs;
 const configDirs: string[] = baseConfigDirs.map((dir) => resolve(dir, APP_DIR));
 const shareDirs: string[] = baseShareDirs.map((dir) => resolve(dir, APP_DIR));
 
-const searchOptionsSchema = z.object({
+const searchOptionsSchema: z.ZodObject<{
+  invert: z.ZodOptional<z.ZodBoolean>;
+  includeCwd: z.ZodOptional<z.ZodBoolean>;
+}> = z.object({
   invert: z.boolean().optional(),
   includeCwd: z.boolean().optional(),
 });

@@ -9,4 +9,8 @@ describe('the getServerNameFromMatrixId helper', () => {
     expect(firstServer).toEqual('example.com')
     expect(secondServer).toEqual('linagora.com')
   })
+
+  it('does not invent a server for a malformed Matrix ID', () => {
+    expect(getServerNameFromMatrixId('not-a-matrix-id')).toBe('')
+  })
 })
