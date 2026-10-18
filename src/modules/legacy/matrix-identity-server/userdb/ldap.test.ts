@@ -213,6 +213,22 @@ describe('UserDBLDAP', () => {
       await userDB.ready
     })
 
+    it('does not disclose a private LDAP search predicate or attribute into logs', async () => {
+      const sentinel = 'PRIVATE_LDAP_CLIENT_VALUE_9c5e'
+      const watches = (['silly', 'debug', 'info', 'warn', 'error'] as const).map(level =>
+        spyOn(logger, level)
+      )
+      try {
+        await userDB.get('', [], { mail: sentinel })
+        await userDB.get('', [], { uid: 'dwho' })
+        const logged = JSON.stringify(watches.flatMap(watch => watch.mock.calls))
+        expect(logged).not.toContain(sentinel)
+        expect(logged).not.toContain('dwho@example.com')
+      } finally {
+        watches.forEach(watch => watch.mockRestore())
+      }
+    })
+
     it('should return results with default fields for exact match', async () => {
       const results = await userDB.get('', [], {
         uid: 'dwho',
