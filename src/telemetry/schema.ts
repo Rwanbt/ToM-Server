@@ -5,7 +5,23 @@ const TELEMETRY_METRICS_ENDPOINT = "/metrics";
 const TELEMETRY_SAMPLING_RATIO_DEFAULT = 1.0;
 const TELEMETRY_DIAGNOSTICS_LOG_LEVEL_DEFAULT = "NONE";
 
-export const telemetrySettingsSchema = z.object({
+type TelemetrySettingsShape = {
+  enabled: z.ZodDefault<z.ZodBoolean>;
+  metrics_endpoint: z.ZodDefault<z.ZodString>;
+  otlp_endpoint: z.ZodOptional<z.ZodURL>;
+  trace_sample_ratio: z.ZodDefault<z.ZodNumber>;
+  diag_log_level: z.ZodDefault<
+    z.ZodEnum<{
+      NONE: "NONE";
+      ERROR: "ERROR";
+      WARN: "WARN";
+      INFO: "INFO";
+      DEBUG: "DEBUG";
+    }>
+  >;
+};
+
+export const telemetrySettingsSchema: z.ZodObject<TelemetrySettingsShape> = z.object({
   enabled: z.boolean().default(TELEMETRY_ENABLED_DEFAULT),
   // Prometheus scrape endpoint path
   metrics_endpoint: z.string().default(TELEMETRY_METRICS_ENDPOINT),
