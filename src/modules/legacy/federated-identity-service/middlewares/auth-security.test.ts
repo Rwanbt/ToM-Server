@@ -84,4 +84,17 @@ describe('federated identity trust boundary preserves complete IPv6 addresses', 
     expect(recorded).not.toContain(secret)
     expect(recorded).not.toContain('access_token=')
   })
+  it('rejects structured query bearer credentials before SQL token lookup', async () => {
+    let finish!: (status: number) => void
+    const result = new Promise<number>(resolve => { finish = resolve })
+    const db = { get: mock() }
+    const logger = { info: mock(), debug: mock(), error: mock(), warn: mock() }
+    Authenticate(db as never, [], false, logger as never)(
+      { headers: {}, query: { access_token: ['one', 'two'] }, socket: { remoteAddress: '198.51.100.7' }, method: 'GET', originalUrl: '/test' } as never,
+      { writeHead: (status: number) => finish(status), write: () => {}, end: () => {} } as never,
+      () => { throw Error('unexpected authentication') }, false
+    )
+    expect(await result).toBe(401)
+    expect(db.get).not.toHaveBeenCalled()
+  })
 })

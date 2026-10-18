@@ -60,10 +60,11 @@ export const Authenticate = (
           if (re != null) {
             token = re[1] ?? null
           }
-          // @ts-expect-error req.query exists
-        } else if (req.query && Object.keys(req.query).length > 0) {
-          // @ts-expect-error req.query.access_token may be null
-          token = req.query.access_token
+        } else {
+          const query = (req as unknown as { query?: { access_token?: unknown } }).query
+          if (typeof query?.access_token === 'string' && query.access_token.length > 0) {
+            token = query.access_token
+          }
         }
         if (token != null) {
           db.get('accessTokens', ['data'], { id: token })

@@ -18,4 +18,17 @@ describe('legacy ToM login log hygiene', () => {
     expect(res.writeHead).toHaveBeenCalled()
     expect(JSON.stringify(entries)).not.toContain(SECRET)
   })
+  it('rejects array and object access_token query values before database or remote authentication', () => {
+    for (const candidate of [['token1', 'token2'], { nested: 'token' }, '']) {
+      const db = { get: mock() }
+      const res = { writeHead: mock(), write: mock(), end: mock() }
+      const logger = { warn: mock(), error: mock() }
+      const req = { headers: {}, query: { access_token: candidate } }
+      Authenticate(db as never, {} as never, logger as never)(req as never, res as never, () => {
+        throw Error('malformed token must not authenticate')
+      })
+      expect(res.writeHead).toHaveBeenCalled()
+      expect(db.get).not.toHaveBeenCalled()
+    }
+  })
 })
