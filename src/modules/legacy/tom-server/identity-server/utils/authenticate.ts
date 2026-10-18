@@ -67,7 +67,9 @@ const Authenticate = (
             .then((userInfo) => {
               const uid = (userInfo as WhoAmIResponse | null)?.user_id
               /* istanbul ignore else */
-              if (typeof uid === 'string' && uid.length > 0) {
+              // A successful HTTP response without a Matrix user ID must not
+              // become an authenticated local session.
+              if (typeof uid === 'string' && /^@[^:\s]+:[^\s]+$/.test(uid)) {
                 const data: tokenContent = {
                   sub: uid,
                   epoch: epoch()

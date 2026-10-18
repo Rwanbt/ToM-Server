@@ -59,4 +59,21 @@ describe('legacy ToM login log hygiene', () => {
         value => authenticated(value))
     await expect(identity).resolves.toMatchObject({ sub: '@alice:example.org' })
   })
+  it('does not trust malformed identity fields on HTTP-successful Matrix replies', async () => {
+    for (const user_id of [' ', 'alice', '@missing-domain:', 42, null]) {
+      const db = { get: mock(async () => []), insert: mock(async () => {}) }
+      const logger = { warn: mock(), error: mock(), debug: mock(), info: mock() }
+      const fetchWhoAmI = mock(async () => ({ ok: true, json: async () => ({ user_id }) }))
+      const response = { writeHead: mock(), write: mock(), end: mock() }
+      const callback = mock()
+      Authenticate(db as never, { matrix_server: 'example.org' } as never, logger as never,
+        fetchWhoAmI as never)(
+          { headers: { authorization: 'Bearer untrusted-token' }, socket: { remoteAddress: '127.0.0.1' } } as never,
+          response as never, callback)
+      // Promise continuations must complete without ever caching an invalid subject.
+      await new Promise(resolve => setTimeout(resolve, 0))
+      expect(db.insert).not.toHaveBeenCalled()
+      expect(callback).not.toHaveBeenCalled()
+    }
+  })
 })
