@@ -1,5 +1,5 @@
 import { type TwakeLogger } from '../../../logger/index'
-import { ITokenService, TokenResponse, type Config } from '../../types'
+import { type ITokenService, type TokenResponse, type Config } from '../../types'
 import {
   type TokenLoginPayload,
   type TokenLoginResponse,

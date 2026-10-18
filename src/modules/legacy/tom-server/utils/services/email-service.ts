@@ -4,7 +4,7 @@ import {
   type SendMailOptions,
   createTransport
 } from 'nodemailer'
-import { Config, IEmailService, MailerConfig } from '../../types'
+import { type Config, type IEmailService, type MailerConfig } from '../../types'
 
 export default class EmailService implements IEmailService {
   private transport: Transporter<SentMessageInfo>

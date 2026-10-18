@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
-import { TwakeDB } from '../../types'
+import { type TwakeDB } from '../../types'
 import { AddressbookService } from '../services'
 import { type TwakeLogger } from '../../../logger'
-import { Contact } from '../types'
+import { type Contact } from '../types'
 
 const dbMock = {
   get: mock(),

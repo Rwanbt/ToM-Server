@@ -1,4 +1,5 @@
 import { createLogger } from "winston";
+import { describe, expect, it } from "bun:test";
 
 import { DomainError } from "../../errors/domain-error";
 import { WellKnownClientService } from "./service";

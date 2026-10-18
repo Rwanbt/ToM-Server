@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, mock } from 'bun:test'
 import type { NextFunction, Response } from 'express'
 import type { AuthRequest, Config } from '../../types'
 import CookieAuthMiddleware from './cookie-auth.middleware'
-import { TwakeLogger } from '../../../logger'
+import { type TwakeLogger } from '../../../logger'
 
 const loggerMock = {
   info: mock(),

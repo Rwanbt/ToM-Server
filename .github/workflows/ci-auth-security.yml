@@ -80,7 +80,7 @@ jobs:
           bun-version: '1.4.3'
       - run: bun install --frozen-lockfile
       - run: cd baseline && bun install --frozen-lockfile
-      - run: node --test ci/compare-typecheck.test.cjs
+      - run: node --test ci/compare-typecheck.test.cjs ci/fix-type-only-imports.test.cjs
       - name: Fail on any introduced TypeScript diagnostic
         shell: bash
         run: |
@@ -95,5 +95,8 @@ jobs:
             echo 'Unexpected TypeScript runner status; refusing unverified comparison' >&2
             exit 1
           fi
+          # The pre-existing type errors remain release-blocking, but every
+          # compiler-reported missing type-only import must now be fixed.
+          node ci/fix-type-only-imports.cjs --check --log "$RUNNER_TEMP/candidate-tsc.log"
           node ci/compare-typecheck.cjs \
             "$RUNNER_TEMP/baseline-tsc.log" "$RUNNER_TEMP/candidate-tsc.log"

@@ -1,5 +1,5 @@
-import { TwakeLogger } from '../../../logger/index'
-import { AuthRequest, TwakeDB } from '../../types'
+import { type TwakeLogger } from '../../../logger/index'
+import { type AuthRequest, type TwakeDB } from '../../types'
 import type {
   Contact,
   EnrichedContact,

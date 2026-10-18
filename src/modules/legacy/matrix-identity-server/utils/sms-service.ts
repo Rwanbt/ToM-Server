@@ -1,5 +1,5 @@
 import type { TwakeLogger } from '../../logger/index'
-import { Config, ISMSService, SendSmsPayload } from '../types'
+import { type Config, type ISMSService, type SendSmsPayload } from '../types'
 import { buildUrl } from '../utils'
 
 export class SmsService implements ISMSService {

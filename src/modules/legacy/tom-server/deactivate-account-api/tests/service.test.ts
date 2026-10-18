@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, mock, vi } from 'bun:test'
 import { type TwakeLogger } from '../../../logger'
 import Service from '../services'
 import type { Config } from '../../types'
-import { IAdminService } from '../types'
+import { type IAdminService } from '../types'
 
 const loggerMock = {
   info: mock(),

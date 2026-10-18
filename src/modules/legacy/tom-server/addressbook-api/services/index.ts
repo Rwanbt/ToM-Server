@@ -1,5 +1,5 @@
 import { v7 as uuidv7 } from 'uuid'
-import { TwakeLogger } from '../../../logger/index'
+import { type TwakeLogger } from '../../../logger/index'
 import type { UserDB } from '../../../matrix-identity-server/index'
 import { toMatrixId } from '../../../utils/index'
 import type { Config, TwakeDB } from '../../types'

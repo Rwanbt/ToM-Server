@@ -106,4 +106,18 @@ two independent pinned checkouts and self-tested comparison logic.
 unmodified full `typecheck` job still fails on inherited errors; no
 release can be approved until that strict job itself passes.
 
+### Incremental real strict-typing repairs (2026-10-18)
+
+After the initial baseline verification, native TypeScript 7 compiler
+diagnostics guided a constrained import-specifier rewrite: **42**
+`TS1484` violations across 22 files corrected to use `type` imports.
+The resulting application runtime imports remain unchanged. Next,
+missing `bun:test` symbols in the config-parser and well-known suites
+were imported explicitly. Strict `bun run type-check` now reports
+**871 errors** instead of **968** on the previous PR SHA, and
+`TS1484 = 0`. The type-only changes have positive/negative parser
+tests and the CI baseline comparator now rejects their reintroduction.
+No tsconfig flags were weakened. The inherited remaining 871 errors
+are still a blocking NO-GO.
+
 This patch does **not** certify all token ingress, distributed rate limiting, external SSO, UI/UX, or production deployments. Never use real secrets in these tests, and do not merge without mandatory independent CI verification on the exact PR HEAD.

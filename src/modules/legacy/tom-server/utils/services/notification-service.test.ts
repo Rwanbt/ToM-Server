@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, mock, test } from 'bun:test'
-import { TwakeLogger } from '../../../logger'
-import { Config } from '../../types'
+import { type TwakeLogger } from '../../../logger'
+import { type Config } from '../../types'
 import NotificationService from './notification-service'
 
 const sendSMSMock = mock()

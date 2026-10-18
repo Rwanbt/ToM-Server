@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, mock, spyOn, test } from 'bun:test'
 import { type TwakeLogger } from '../../../logger'
 import Service from '../services'
-import { Config, TwakeDB } from '../../types'
+import { type Config, type TwakeDB } from '../../types'
 
 const dbMock = {
   get: mock(),

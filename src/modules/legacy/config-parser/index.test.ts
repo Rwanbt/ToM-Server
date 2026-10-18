@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { afterAll, afterEach, beforeEach, describe, expect, it, mock, spyOn, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, it, mock, spyOn, test, type Mock } from "bun:test";
 import { ConfigCoercionError, FileReadParseError, MissingRequiredConfigError, UnacceptedKeyError } from "./errors";
 import twakeConfig from "./index";
 import type { ConfigDescription, Configuration } from "./types";

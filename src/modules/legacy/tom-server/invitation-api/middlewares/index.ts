@@ -1,4 +1,4 @@
-import { TwakeLogger } from '../../../logger/index'
+import { type TwakeLogger } from '../../../logger/index'
 import type { AuthRequest, Config, TwakeDB } from '../../types'
 import type { NextFunction, Request, Response } from 'express'
 import type { Invitation, InvitationRequestPayload } from '../types'

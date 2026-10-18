@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, mock, test } from 'bun:test'
 import { type TwakeLogger } from '../../../logger'
 import { DbGetResult, MatrixDB, UserDB } from '../../../../matrix-identity-server'
-import { IAddressbookService } from '../../addressbook-api/types'
+import { type IAddressbookService } from '../../addressbook-api/types'
 import type { Config, TwakeDB } from '../../types'
 import UserInfoService from '../services'
 import {
@@ -9,7 +9,7 @@ import {
   ProfileVisibility,
   type UserProfileSettingsPayloadT,
   type UserInformation,
-  UserProfileSettingsT
+  type UserProfileSettingsT
 } from '../types'
 
 const BASE_CONFIG = {

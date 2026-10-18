@@ -1,6 +1,6 @@
-import { TwakeLogger } from '../../../logger/index'
-import { DeleteUserMediaResponse, IAdminService } from '../types'
-import { Config, ITokenService } from '../../types'
+import { type TwakeLogger } from '../../../logger/index'
+import { type DeleteUserMediaResponse, type IAdminService } from '../types'
+import { type Config, type ITokenService } from '../../types'
 import TokenService from '../../utils/services/token-service'
 import { buildUrl } from '../../utils'
 

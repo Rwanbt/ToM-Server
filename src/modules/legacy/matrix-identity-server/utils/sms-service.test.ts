@@ -1,5 +1,5 @@
 import { describe, expect, it, mock, test } from "bun:test"
-import { TwakeLogger } from '../../logger'
+import { type TwakeLogger } from '../../logger'
 import type { Config } from '../types'
 import { SmsService } from './sms-service'
 

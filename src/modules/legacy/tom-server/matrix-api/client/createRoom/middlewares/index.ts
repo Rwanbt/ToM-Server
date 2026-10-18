@@ -1,4 +1,4 @@
-import { TwakeLogger } from '../../../../../logger/index'
+import { type TwakeLogger } from '../../../../../logger/index'
 import type { NextFunction, Request, Response } from 'express'
 import validator from 'validator'
 import { buildUrl } from '../../../../utils'
