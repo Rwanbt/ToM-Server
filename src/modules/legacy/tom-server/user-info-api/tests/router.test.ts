@@ -13,7 +13,7 @@ import router, { PATH } from '../routes'
 
 const app = express()
 
-spyOn(IdentityServerDb.prototype, 'get').mockResolvedValue([{ data: '"test"' }])
+spyOn(IdentityServerDb.prototype, 'get').mockResolvedValue([{ data: JSON.stringify({ sub: '@test:example.org' }) }])
 
 const matrixDBMock: Partial<MatrixDB> = {
   get: mock().mockResolvedValue([{ displayname: '', avatar_url: 'avatar_url' }])
