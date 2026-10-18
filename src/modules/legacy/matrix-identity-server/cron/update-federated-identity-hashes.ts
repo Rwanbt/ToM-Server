@@ -11,10 +11,19 @@ import type UserDB from '../userdb'
 import { dbFieldsToHash, filter } from './changePepper'
 import { toMatrixId } from '../../utils/index'
 
-interface HashDetails {
-  algorithms: string[]
-  lookup_pepper: string
-  alt_lookup_peppers?: string[]
+export function parseFederatedHashDetails(raw: unknown): {
+  algorithm: 'sha256'
+  peppers: string[]
+} | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const body = raw as Record<string, unknown>
+  if (!Array.isArray(body.algorithms) || !body.algorithms.includes('sha256')) return null
+  if (typeof body.lookup_pepper !== 'string' || body.lookup_pepper.length === 0 || body.lookup_pepper.length > 256) return null
+  if (body.alt_lookup_peppers !== undefined &&
+      (!Array.isArray(body.alt_lookup_peppers) || body.alt_lookup_peppers.length > 8 ||
+       !body.alt_lookup_peppers.every((pepper: unknown) => typeof pepper === 'string' && pepper.length > 0 && pepper.length <= 256))) return null
+  const alternatives = (body.alt_lookup_peppers ?? []) as string[]
+  return { algorithm: 'sha256', peppers: [...new Set([body.lookup_pepper, ...alternatives])] }
 }
 
 interface LookupsDetail {
@@ -42,9 +51,9 @@ export default async (
       ? (conf.federated_identity_services as string).split(/[,\s]+/)
       : []
 
-  let serversIndexFail: number[] = []
+  const serversIndexFail: number[] = []
 
-  let responses = (
+  const responses = (
     await Promise.allSettled(
       // eslint-disable-next-line @typescript-eslint/promise-function-async
       federatedIdentityServicesAddresses.map((address) =>
@@ -56,7 +65,7 @@ export default async (
       if (result.status === 'rejected') {
         logger.error(
           // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          `${prefixErrorMessage} Request to get pepper and algorithms from federated identity service ${federatedIdentityServicesAddresses[index]} failed. Reason: ${result.reason}`
+          `${prefixErrorMessage} Request to get hash_details from federated identity service ${federatedIdentityServicesAddresses[index]} failed`
         )
         serversIndexFail.push(index)
         return false
@@ -69,67 +78,24 @@ export default async (
     federatedIdentityServicesAddresses.filter(
       (_address, index) => !serversIndexFail.includes(index)
     )
-  serversIndexFail = []
-
-  const bodies = (
+  const settledBodies = (
     await Promise.allSettled(
       // eslint-disable-next-line @typescript-eslint/promise-function-async
       responses.map((response) => response.json())
     )
-  ).reduce<HashDetails[]>((acc, curr, index) => {
-    try {
-      if (curr.status === 'rejected') {
-        throw new Error(
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          `${prefixErrorMessage} Error on parsing response body of request to get pepper and algorithm from ${federatedIdentityServicesAddresses[index]}. Reason: ${curr.reason}`
-        )
-      }
-      const body = curr.value as
-        | HashDetails
-        | { error: string; errcode: string }
-      if ('errcode' in body) {
-        throw new Error(
-          `${prefixErrorMessage} Error in response body of request to get pepper and algorithm from ${federatedIdentityServicesAddresses[index]}. Reason: ${body.error}`
-        )
-      } else if (body.algorithms == null || body.algorithms.length < 1) {
-        throw new Error(
-          `${prefixErrorMessage} Error ${federatedIdentityServicesAddresses[index]} did not provide algorithms`
-        )
-      } else if (body.lookup_pepper == null) {
-        throw new Error(
-          `${prefixErrorMessage} Error ${federatedIdentityServicesAddresses[index]} did not provide lookup_pepper`
-        )
-      } else {
-        return [...acc, body]
-      }
-    } catch (e) {
-      logger.error(e)
-      serversIndexFail.push(index)
-      return acc
+  )
+  const validServers: Array<{ address: string; algorithm: 'sha256'; peppers: string[] }> = []
+  settledBodies.forEach((result, index) => {
+    const address = federatedIdentityServicesAddresses[index]
+    if (!address) return
+    const details = result.status === 'fulfilled' ? parseFederatedHashDetails(result.value) : null
+    if (!details) {
+      logger.error(`${prefixErrorMessage} Invalid or unavailable hash_details from ${address}`)
+      return
     }
-  }, [])
-
-  federatedIdentityServicesAddresses =
-    federatedIdentityServicesAddresses.filter(
-      (_address, index) => !serversIndexFail.includes(index)
-    )
-
-  const federatedIdentityServicesDetail =
-    federatedIdentityServicesAddresses.reduce<
-      Record<string, { algorithm: string; peppers: string[] }>
-    >(
-      (acc, curr, index) => ({
-        ...acc,
-        [curr]: {
-          algorithm: bodies[index].algorithms[0],
-          peppers: [
-            bodies[index].lookup_pepper,
-            ...(bodies[index].alt_lookup_peppers ?? [])
-          ]
-        }
-      }),
-      {}
-    )
+    validServers.push({ address, ...details })
+  })
+  if (validServers.length === 0) return
 
   const isMatrixDbAvailable =
     Boolean(conf.matrix_database_host) && Boolean(conf.matrix_database_engine)
@@ -152,15 +118,16 @@ export default async (
   const hash = new Hash()
   await hash.ready
 
-  const getUsersHashes = (algorithm: string, pepper: string): string[] => {
+  const getUsersHashes = (pepper: string): string[] => {
     const result: string[] = []
     Object.keys(usersData).forEach((matrixAddress) => {
+      const user = usersData[matrixAddress]
+      if (!user || user.active !== 1) return
       fieldsToHash.forEach((field) => {
-        const v = usersData[matrixAddress][field as keyof ValueField]
+        const v = user[field as keyof ValueField]
         if (
           v != null &&
-          v.toString().length > 0 &&
-          usersData[matrixAddress].active === 1
+          v.toString().length > 0
         ) {
           let value = v.toString()
           let _field: string = field
@@ -168,9 +135,10 @@ export default async (
             _field = 'msisdn'
             value = value.replace(/\s/g, '').replace(/^\+/, '')
           }
-          logger.debug(`Prepare ${_field} hash for ${value}`)
+          // Never write unhashed directory emails or phone numbers to logs.
+          logger.debug(`Prepare ${_field} federated hash`)
           result.push(
-            hash[algorithm as 'sha256'](`${value} ${_field} ${pepper}`)
+            hash.sha256(`${value} ${_field} ${pepper}`)
           )
         }
       })
@@ -178,87 +146,43 @@ export default async (
     return result
   }
 
-  const lookupsRequestsDetails = federatedIdentityServicesAddresses.reduce<
-    LookupsDetail[]
-  >(
-    (acc, address) => [
-      ...acc,
-      ...federatedIdentityServicesDetail[address].peppers.map((pepper) => ({
-        address,
-        algorithm: federatedIdentityServicesDetail[address].algorithm,
-        pepper,
-        updatedHashes: getUsersHashes(
-          federatedIdentityServicesDetail[address].algorithm,
-          pepper
-        )
-      }))
-    ],
-    []
+  const lookupsRequestsDetails: LookupsDetail[] = validServers.flatMap(
+    ({ address, algorithm, peppers }) => peppers.map((pepper) => ({
+      address,
+      algorithm,
+      pepper,
+      updatedHashes: getUsersHashes(pepper)
+    }))
   )
 
   const { hostname, port } = new URL(conf.base_url)
   // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   const host = hostname.concat(':', port || '443')
 
-  responses = (
-    await Promise.allSettled(
-      // eslint-disable-next-line @typescript-eslint/promise-function-async
-      lookupsRequestsDetails.map((detail) =>
-        fetch(
-          encodeURI(`${detail.address}/_matrix/identity/v2/lookups`),
-          {
-            method: 'post',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              algorithm: detail.algorithm,
-              pepper: detail.pepper,
-              mappings: {
-                [host]: detail.updatedHashes
-              }
-            })
-          }
-        )
-      )
-    )
-  )
-    .filter((result, index) => {
-      if (result.status === 'rejected') {
-        logger.error(
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          `${prefixErrorMessage} Request to post updated hashes on ${federatedIdentityServicesAddresses[index]} failed. Reason: ${result.reason}`
-        )
-        return false
+  const pushResults = await Promise.allSettled(
+    lookupsRequestsDetails.map(async (detail) => {
+      const response = await fetch(encodeURI(`${detail.address}/_matrix/identity/v2/lookups`), {
+        method: 'post',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          algorithm: detail.algorithm,
+          pepper: detail.pepper,
+          mappings: { [host]: detail.updatedHashes }
+        })
+      })
+      if (!response.ok) throw new Error('Remote hash upload was rejected')
+      const body = await response.json()
+      if (!body || typeof body !== 'object' || Array.isArray(body) || 'errcode' in body) {
+        throw new Error('Remote hash upload returned an invalid response')
       }
-      logger.debug(
-        `Hashes pushed to ${federatedIdentityServicesAddresses[index]}`
-      )
-      return true
     })
-    .map((result) => (result as PromiseFulfilledResult<Response>).value)
-  ;(
-    await Promise.allSettled(
-      // eslint-disable-next-line @typescript-eslint/promise-function-async
-      responses.map((response) => response.json())
-    )
-  ).forEach((result, index) => {
-    try {
-      if (result.status === 'rejected') {
-        throw new Error(
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          `${prefixErrorMessage} Error on parsing response body of request to push updated hashes to ${federatedIdentityServicesAddresses[index]}. Reason: ${result.reason}`
-        )
-      }
-      const body = result.value as
-        | Record<string, unknown>
-        | { error: string; errcode: string }
-      if ('errcode' in body) {
-        throw new Error(
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          `${prefixErrorMessage} Error in response body of request to post updated hashes on ${federatedIdentityServicesAddresses[index]}. Reason: ${body.error}`
-        )
-      }
-    } catch (e) {
-      logger.error(e)
+  )
+  pushResults.forEach((result, index) => {
+    const address = lookupsRequestsDetails[index]?.address
+    if (result.status === 'rejected') {
+      logger.error(`${prefixErrorMessage} Failed to update hashes on ${address}`)
+    } else {
+      logger.debug(`Hashes pushed to ${address}`)
     }
   })
 }
