@@ -211,13 +211,29 @@ const roomService = new Service(
   loggerMock as unknown as TwakeLogger
 )
 
+// A missing fetch call or request body must fail the test, rather than being
+// hidden behind an unchecked mock.calls[0] access. The service is exercised
+// through the real room-creation request assembly.
+function readPostedRoom() {
+  const calls = (global.fetch as unknown as Mock<typeof fetch>).mock.calls
+  const body = calls[0]?.[1]?.body
+  if (typeof body !== 'string') {
+    throw new Error('Expected an HTTP room creation call with a JSON request body')
+  }
+  return JSON.parse(body)
+}
+
+function fetchCallCount(): number {
+  return (global.fetch as unknown as Mock<typeof fetch>).mock.calls.length
+}
+
 describe('the RoomService', () => {
   beforeEach(() => {
     mock.clearAllMocks()
   })
 
   it('should call the synapse API to create a room with content override', async () => {
-    global.fetch = mock(() =>
+    global.fetch = Object.assign(mock(() =>
       Promise.resolve({
         ok: true,
         json: () => Promise.resolve({ room_id: 'room_id' }),
@@ -227,7 +243,7 @@ describe('the RoomService', () => {
         }),
         status: 200
       })
-    ) as Mock<(...args: any[]) => any>
+    ) as Mock<(...args: any[]) => any>, { preconnect: () => {} })
 
     const {
       creator_becomes,
@@ -269,7 +285,7 @@ describe('the RoomService', () => {
   })
 
   it('should use appropriate power_level_content_override for public_chat', async () => {
-    global.fetch = mock(() =>
+    global.fetch = Object.assign(mock(() =>
       Promise.resolve({
         ok: true,
         json: () => Promise.resolve({ room_id: 'room_id' }),
@@ -279,7 +295,7 @@ describe('the RoomService', () => {
         }),
         status: 200
       })
-    ) as Mock<(...args: any[]) => any>
+    ) as Mock<(...args: any[]) => any>, { preconnect: () => {} })
 
     const {
       creator_becomes,
@@ -327,7 +343,7 @@ describe('the RoomService', () => {
   })
 
   it('should use trusted_private_chat own power levels (not shared with private_chat)', async () => {
-    global.fetch = mock(() =>
+    global.fetch = Object.assign(mock(() =>
       Promise.resolve({
         ok: true,
         json: () => Promise.resolve({ room_id: 'room_id' }),
@@ -337,7 +353,7 @@ describe('the RoomService', () => {
         }),
         status: 200
       })
-    ) as Mock<(...args: any[]) => any>
+    ) as Mock<(...args: any[]) => any>, { preconnect: () => {} })
 
     const {
       creator_becomes,
@@ -371,15 +387,13 @@ describe('the RoomService', () => {
     )
 
     // trusted_private_chat has ban=10, private_chat has ban=50
-    const callBody = JSON.parse(
-      (global.fetch as Mock<(...args: any[]) => any>).mock.calls[0][1].body
-    )
+    const callBody = readPostedRoom()
     expect(callBody.power_level_content_override.ban).toBe(10)
     expect(callBody.power_level_content_override.state_default).toBe(100)
   })
 
   it('should apply is_direct mask over private_chat when is_direct=true', async () => {
-    global.fetch = mock(() =>
+    global.fetch = Object.assign(mock(() =>
       Promise.resolve({
         ok: true,
         json: () => Promise.resolve({ room_id: 'room_id' }),
@@ -389,7 +403,7 @@ describe('the RoomService', () => {
         }),
         status: 200
       })
-    ) as Mock<(...args: any[]) => any>
+    ) as Mock<(...args: any[]) => any>, { preconnect: () => {} })
 
     const ownerUser = '@user:server.com'
 
@@ -399,9 +413,7 @@ describe('the RoomService', () => {
       ownerUser
     )
 
-    const callBody = JSON.parse(
-      (global.fetch as Mock<(...args: any[]) => any>).mock.calls[0][1].body
-    )
+    const callBody = readPostedRoom()
     const pl = callBody.power_level_content_override
 
     // is_direct mask overrides
@@ -420,7 +432,7 @@ describe('the RoomService', () => {
   })
 
   it('should force is_direct=false for public_chat even if client sends true', async () => {
-    global.fetch = mock(() =>
+    global.fetch = Object.assign(mock(() =>
       Promise.resolve({
         ok: true,
         json: () => Promise.resolve({ room_id: 'room_id' }),
@@ -430,7 +442,7 @@ describe('the RoomService', () => {
         }),
         status: 200
       })
-    ) as Mock<(...args: any[]) => any>
+    ) as Mock<(...args: any[]) => any>, { preconnect: () => {} })
 
     const ownerUser = '@user:server.com'
 
@@ -440,16 +452,14 @@ describe('the RoomService', () => {
       ownerUser
     )
 
-    const callBody = JSON.parse(
-      (global.fetch as Mock<(...args: any[]) => any>).mock.calls[0][1].body
-    )
+    const callBody = readPostedRoom()
     expect(callBody.is_direct).toBe(false)
     // public_chat power levels used (not is_direct overrides)
     expect(callBody.power_level_content_override.ban).toBe(public_chat.ban)
   })
 
   it('should force is_direct=false for private_channel', async () => {
-    global.fetch = mock(() =>
+    global.fetch = Object.assign(mock(() =>
       Promise.resolve({
         ok: true,
         json: () => Promise.resolve({ room_id: 'room_id' }),
@@ -459,7 +469,7 @@ describe('the RoomService', () => {
         }),
         status: 200
       })
-    ) as Mock<(...args: any[]) => any>
+    ) as Mock<(...args: any[]) => any>, { preconnect: () => {} })
 
     const ownerUser = '@user:server.com'
 
@@ -469,21 +479,19 @@ describe('the RoomService', () => {
       ownerUser
     )
 
-    const callBody = JSON.parse(
-      (global.fetch as Mock<(...args: any[]) => any>).mock.calls[0][1].body
-    )
+    const callBody = readPostedRoom()
     expect(callBody.is_direct).toBe(false)
     // Forwarded to Synapse as private_chat
     expect(callBody.preset).toBe('private_chat')
   })
 
   it('should return a 500 response if something went wrong', async () => {
-    global.fetch = mock(() =>
+    global.fetch = Object.assign(mock(() =>
       Promise.reject({
         status: 500,
         json: () => Promise.reject({ error: 'error' })
       })
-    ) as Mock<(...args: any[]) => any>
+    ) as Mock<(...args: any[]) => any>, { preconnect: () => {} })
 
     const response = await roomService.create(
       { invite: ['@user:server.com'] },
@@ -495,14 +503,14 @@ describe('the RoomService', () => {
   })
 
   it('should not retry on HTTP 500 from Synapse', async () => {
-    global.fetch = mock(() =>
+    global.fetch = Object.assign(mock(() =>
       Promise.resolve({
         ok: false,
         status: 500,
         statusText: 'Internal Server Error',
         clone: () => ({ text: () => Promise.resolve('error') })
       })
-    ) as Mock<(...args: any[]) => any>
+    ) as Mock<(...args: any[]) => any>, { preconnect: () => {} })
 
     const response = await roomService.create(
       { invite: ['@user:server.com'] },
@@ -511,12 +519,12 @@ describe('the RoomService', () => {
     )
 
     // Only one call — no retry on HTTP responses
-    expect((global.fetch as Mock<(...args: any[]) => any>).mock.calls.length).toBe(1)
+    expect(fetchCallCount()).toBe(1)
     expect(response.status).toBe(500)
   })
 
   it('should derive preset from visibility=public when no preset given', async () => {
-    global.fetch = mock(() =>
+    global.fetch = Object.assign(mock(() =>
       Promise.resolve({
         ok: true,
         json: () => Promise.resolve({ room_id: 'room_id' }),
@@ -526,7 +534,7 @@ describe('the RoomService', () => {
         }),
         status: 200
       })
-    ) as Mock<(...args: any[]) => any>
+    ) as Mock<(...args: any[]) => any>, { preconnect: () => {} })
 
     const ownerUser = '@user:server.com'
 
@@ -536,15 +544,13 @@ describe('the RoomService', () => {
       ownerUser
     )
 
-    const callBody = JSON.parse(
-      (global.fetch as Mock<(...args: any[]) => any>).mock.calls[0][1].body
-    )
+    const callBody = readPostedRoom()
     expect(callBody.preset).toBe('public_chat')
     expect(callBody.visibility).toBe('public')
   })
 
   it('should use default_preset from config when no preset or visibility given', async () => {
-    global.fetch = mock(() =>
+    global.fetch = Object.assign(mock(() =>
       Promise.resolve({
         ok: true,
         json: () => Promise.resolve({ room_id: 'room_id' }),
@@ -554,15 +560,13 @@ describe('the RoomService', () => {
         }),
         status: 200
       })
-    ) as Mock<(...args: any[]) => any>
+    ) as Mock<(...args: any[]) => any>, { preconnect: () => {} })
 
     const ownerUser = '@user:server.com'
 
     roomService.create({ invite: [ownerUser] }, 'Bearer token', ownerUser)
 
-    const callBody = JSON.parse(
-      (global.fetch as Mock<(...args: any[]) => any>).mock.calls[0][1].body
-    )
+    const callBody = readPostedRoom()
     // default_preset in testConfig is 'private_chat'
     expect(callBody.preset).toBe('private_chat')
     expect(callBody.visibility).toBe('private')
@@ -586,7 +590,7 @@ describe('the RoomService', () => {
       loggerMock as unknown as TwakeLogger
     )
 
-    global.fetch = mock(() =>
+    global.fetch = Object.assign(mock(() =>
       Promise.resolve({
         ok: true,
         json: () => Promise.resolve({ room_id: 'room_id' }),
@@ -596,14 +600,12 @@ describe('the RoomService', () => {
         }),
         status: 200
       })
-    ) as Mock<(...args: any[]) => any>
+    ) as Mock<(...args: any[]) => any>, { preconnect: () => {} })
 
     const ownerUser = '@user:server.com'
     enforcedService.create({ invite: [ownerUser] }, 'Bearer token', ownerUser)
 
-    const callBody = JSON.parse(
-      (global.fetch as Mock<(...args: any[]) => any>).mock.calls[0][1].body
-    )
+    const callBody = readPostedRoom()
     const encEvent = (callBody.initial_state ?? []).find(
       (e: { type: string }) => e.type === 'm.room.encryption'
     )
@@ -629,7 +631,7 @@ describe('the RoomService', () => {
       loggerMock as unknown as TwakeLogger
     )
 
-    global.fetch = mock(() =>
+    global.fetch = Object.assign(mock(() =>
       Promise.resolve({
         ok: true,
         json: () => Promise.resolve({ room_id: 'room_id' }),
@@ -639,7 +641,7 @@ describe('the RoomService', () => {
         }),
         status: 200
       })
-    ) as Mock<(...args: any[]) => any>
+    ) as Mock<(...args: any[]) => any>, { preconnect: () => {} })
 
     const ownerUser = '@user:server.com'
     enforcedService.create(
@@ -657,9 +659,7 @@ describe('the RoomService', () => {
       ownerUser
     )
 
-    const callBody = JSON.parse(
-      (global.fetch as Mock<(...args: any[]) => any>).mock.calls[0][1].body
-    )
+    const callBody = readPostedRoom()
     const encEvents = (callBody.initial_state ?? []).filter(
       (e: { type: string }) => e.type === 'm.room.encryption'
     )
@@ -684,7 +684,7 @@ describe('the RoomService', () => {
       loggerMock as unknown as TwakeLogger
     )
 
-    global.fetch = mock(() =>
+    global.fetch = Object.assign(mock(() =>
       Promise.resolve({
         ok: true,
         json: () => Promise.resolve({ room_id: 'room_id' }),
@@ -694,7 +694,7 @@ describe('the RoomService', () => {
         }),
         status: 200
       })
-    ) as Mock<(...args: any[]) => any>
+    ) as Mock<(...args: any[]) => any>, { preconnect: () => {} })
 
     const ownerUser = '@user:server.com'
     disabledService.create(
@@ -717,9 +717,7 @@ describe('the RoomService', () => {
       ownerUser
     )
 
-    const callBody = JSON.parse(
-      (global.fetch as Mock<(...args: any[]) => any>).mock.calls[0][1].body
-    )
+    const callBody = readPostedRoom()
     const encEvent = (callBody.initial_state ?? []).find(
       (e: { type: string }) => e.type === 'm.room.encryption'
     )

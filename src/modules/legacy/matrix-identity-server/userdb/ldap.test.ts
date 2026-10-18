@@ -104,7 +104,7 @@ const entryMatches = (
     )
   }
   const match = /^\(([^=]+)=([^)]*)\)$/.exec(filter)
-  if (match != null) {
+  if (match?.[1] !== undefined && match[2] !== undefined) {
     return attrMatches(match[1], match[2], entry)
   }
   return false
@@ -150,6 +150,7 @@ describe('UserDBLDAP', () => {
       {
         ...defaultConfig,
         database_engine: 'sqlite',
+        matrix_database_engine: 'pg',
         userdb_engine: 'ldap',
         ldap_uri: overrides?.ldapUri ?? LDAP_URI,
         ldap_base: overrides?.ldapBase ?? LDAP_BASE,
@@ -219,7 +220,7 @@ describe('UserDBLDAP', () => {
       })
 
       expect(results).toHaveLength(1)
-      expect(results[0].dn).toBe('cn=dwho,ou=users,o=example')
+      expect(results[0]?.dn).toBe('cn=dwho,ou=users,o=example')
     })
 
     it('should return only requested fields', async () => {
@@ -350,20 +351,20 @@ describe('UserDBLDAP', () => {
       const results = await userDB.getAll('', ['uid'], 'uid')
 
       expect(results).toHaveLength(4)
-      expect(results[0].uid).toBe('asmith')
-      expect(results[1].uid).toBe('dwho')
-      expect(results[2].uid).toBe('jdoe')
-      expect(results[3].uid).toBe('lskywalker')
+      expect(results[0]?.uid).toBe('asmith')
+      expect(results[1]?.uid).toBe('dwho')
+      expect(results[2]?.uid).toBe('jdoe')
+      expect(results[3]?.uid).toBe('lskywalker')
     })
 
     it('should sort results by numeric field when order specified', async () => {
       const results = await userDB.getAll('', ['uid', 'age'], 'age')
 
       expect(results).toHaveLength(4)
-      expect(results[0].uid).toBe('lskywalker') // age 23
-      expect(results[1].uid).toBe('asmith') // age 25
-      expect(results[2].uid).toBe('jdoe') // age 30
-      expect(results[3].uid).toBe('dwho') // age 950
+      expect(results[0]?.uid).toBe('lskywalker') // age 23
+      expect(results[1]?.uid).toBe('asmith') // age 25
+      expect(results[2]?.uid).toBe('jdoe') // age 30
+      expect(results[3]?.uid).toBe('dwho') // age 950
     })
 
     it('should return all fields when fields array contains all attributes', async () => {
@@ -398,7 +399,7 @@ describe('UserDBLDAP', () => {
       })
 
       expect(results).toHaveLength(1)
-      expect(results[0].uid).toBe('dwho')
+      expect(results[0]?.uid).toBe('dwho')
     })
 
     it('should handle filter with undefined values gracefully', async () => {
@@ -413,7 +414,7 @@ describe('UserDBLDAP', () => {
       )
 
       expect(results).toHaveLength(1)
-      expect(results[0].uid).toBe('dwho')
+      expect(results[0]?.uid).toBe('dwho')
     })
 
     it('should handle filter with empty array values gracefully', async () => {
@@ -423,7 +424,7 @@ describe('UserDBLDAP', () => {
       })
 
       expect(results).toHaveLength(1)
-      expect(results[0].uid).toBe('dwho')
+      expect(results[0]?.uid).toBe('dwho')
     })
 
     it('should return empty array for completely non-matching filter', async () => {

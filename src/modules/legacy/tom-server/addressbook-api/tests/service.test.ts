@@ -165,9 +165,9 @@ describe('the addressbooK API service', () => {
       const addressbook = await service.list('user-id')
 
       expect(addressbook.contacts).toHaveLength(3)
-      expect(addressbook.contacts[0].display_name).toBe('Alice')
-      expect(addressbook.contacts[1].display_name).toBe('Bob')
-      expect(addressbook.contacts[2].display_name).toBe('Zoe')
+      expect(addressbook.contacts[0]?.display_name).toBe('Alice')
+      expect(addressbook.contacts[1]?.display_name).toBe('Bob')
+      expect(addressbook.contacts[2]?.display_name).toBe('Zoe')
     })
 
     it('should filter out contacts with invalid or missing id', async () => {
@@ -210,7 +210,7 @@ describe('the addressbooK API service', () => {
       const addressbook = await service.list('user-id')
 
       expect(addressbook.contacts).toHaveLength(1)
-      expect(addressbook.contacts[0].id).toBe('valid-contact-id')
+      expect(addressbook.contacts[0]?.id).toBe('valid-contact-id')
     })
 
     it('should filter out contacts with invalid or missing mxid', async () => {
@@ -253,7 +253,7 @@ describe('the addressbooK API service', () => {
       const addressbook = await service.list('user-id')
 
       expect(addressbook.contacts).toHaveLength(1)
-      expect(addressbook.contacts[0].mxid).toBe('@valid:server.com')
+      expect(addressbook.contacts[0]?.mxid).toBe('@valid:server.com')
     })
 
     it('should convert active field to boolean', async () => {
@@ -289,8 +289,8 @@ describe('the addressbooK API service', () => {
 
       const addressbook = await service.list('user-id')
 
-      expect(addressbook.contacts[0].active).toBe(true)
-      expect(addressbook.contacts[1].active).toBe(false)
+      expect(addressbook.contacts[0]?.active).toBe(true)
+      expect(addressbook.contacts[1]?.active).toBe(false)
     })
 
     it('should place contacts with empty display_name at the end', async () => {
@@ -334,9 +334,9 @@ describe('the addressbooK API service', () => {
       const addressbook = await service.list('user-id')
 
       expect(addressbook.contacts).toHaveLength(3)
-      expect(addressbook.contacts[0].display_name).toBe('Alice')
-      expect(addressbook.contacts[1].display_name).toBe('')
-      expect(addressbook.contacts[2].display_name).toBeNull()
+      expect(addressbook.contacts[0]?.display_name).toBe('Alice')
+      expect(addressbook.contacts[1]?.display_name).toBe('')
+      expect(addressbook.contacts[2]?.display_name).toBeNull()
     })
 
     it('should handle complex deduplication scenario with multiple duplicates', async () => {
@@ -387,12 +387,12 @@ describe('the addressbooK API service', () => {
       const addressbook = await service.list('user-id')
 
       expect(addressbook.contacts).toHaveLength(2)
-      expect(addressbook.contacts[0].mxid).toBe('@another:server.com')
-      expect(addressbook.contacts[1].mxid).toBe('@user:server.com')
-      expect(addressbook.contacts[1].id).toBe(
+      expect(addressbook.contacts[0]?.mxid).toBe('@another:server.com')
+      expect(addressbook.contacts[1]?.mxid).toBe('@user:server.com')
+      expect(addressbook.contacts[1]?.id).toBe(
         '018d1234-1111-7abc-def0-123456789abc'
       )
-      expect(addressbook.contacts[1].display_name).toBe('User One')
+      expect(addressbook.contacts[1]?.display_name).toBe('User One')
     })
 
     it('should return empty contacts array when database returns non-array', async () => {
