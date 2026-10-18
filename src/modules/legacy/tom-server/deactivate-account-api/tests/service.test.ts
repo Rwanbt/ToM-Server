@@ -12,6 +12,12 @@ const loggerMock = {
 
 const tokenServiceSpy = mock()
 
+// Bun's native fetch has a `preconnect` member; keep mock overrides
+// structurally compatible rather than bypassing strict typing with `any`.
+function useFetchMock(fake: ReturnType<typeof mock>): void {
+  global.fetch = Object.assign(fake, { preconnect: () => {} })
+}
+
 mock.module('../../utils/services/token-service.ts', () => {
   return {
     default: function () {
@@ -40,7 +46,7 @@ describe('the admin service', () => {
   describe('the removeAccount method', () => {
     it('should try to get an admin access token', async () => {
       tokenServiceSpy.mockResolvedValueOnce('some_access_token')
-      global.fetch = mock()
+      useFetchMock(mock())
       await service.removeAccount('some_user_id')
 
       expect(tokenServiceSpy).toHaveBeenCalledWith('admin', 'XXXXX')
@@ -48,7 +54,7 @@ describe('the admin service', () => {
 
     it('should call the deleteUserMedia and disableUserAccount methods', async () => {
       tokenServiceSpy.mockResolvedValueOnce('some_access_token')
-      global.fetch = mock()
+      useFetchMock(mock())
       service.deleteUserMedia = mock()
       service.disableUserAccount = mock()
 
@@ -66,14 +72,14 @@ describe('the admin service', () => {
 
     it('should throw an error if it fails to obtain an admin access token', async () => {
       tokenServiceSpy.mockRejectedValueOnce(new Error('some_error'))
-      global.fetch = mock()
+      useFetchMock(mock())
 
       await expect(service.removeAccount('some_user_id')).rejects.toThrow()
     })
 
     it('should throw an error if something wrong happens while calling the deleteUserMedia method', async () => {
       tokenServiceSpy.mockResolvedValueOnce('some_access_token')
-      global.fetch = mock()
+      useFetchMock(mock())
       service.deleteUserMedia = mock()
         .mockRejectedValueOnce(new Error('some_error'))
       service.disableUserAccount = mock()
@@ -83,7 +89,7 @@ describe('the admin service', () => {
 
     it('should throw an error if something weong happens while calling the disableUserAccount method', async () => {
       tokenServiceSpy.mockResolvedValueOnce('some_access_token')
-      global.fetch = mock()
+      useFetchMock(mock())
       service.deleteUserMedia = mock()
       service.disableUserAccount = mock()
         .mockRejectedValueOnce(new Error('some_error'))
@@ -94,10 +100,10 @@ describe('the admin service', () => {
 
   describe('the deleteUserMedia method', () => {
     it('should call the synapse admin API to delete user media', async () => {
-      global.fetch = mock().mockResolvedValue({
+      useFetchMock(mock().mockResolvedValue({
         ok: true,
         json: mock().mockResolvedValue({ total: 1 })
-      })
+      }))
 
       await service.deleteUserMedia('some_user_id', 'some_access_token')
 
@@ -113,7 +119,7 @@ describe('the admin service', () => {
     })
 
     it('should log an error if the synapse admin API call fails', async () => {
-      global.fetch = mock().mockRejectedValue(new Error('some_error'))
+      useFetchMock(mock().mockRejectedValue(new Error('some_error')))
 
       await service.deleteUserMedia('some_user_id', 'some_access_token')
 
@@ -121,9 +127,9 @@ describe('the admin service', () => {
     })
 
     it('should log an error if the synapse admin API returns a bad response', async () => {
-      global.fetch = mock().mockResolvedValue({
+      useFetchMock(mock().mockResolvedValue({
         json: mock().mockResolvedValue({ somethingelse: true })
-      })
+      }))
 
       await service.deleteUserMedia('some_user_id', 'some_access_token')
 
@@ -133,10 +139,10 @@ describe('the admin service', () => {
 
   describe('the disableUserAccount', () => {
     it('should call the synapse admin API to disable the user account', async () => {
-      global.fetch = mock().mockResolvedValue({
+      useFetchMock(mock().mockResolvedValue({
         ok: true,
         json: mock().mockResolvedValue({ total: 1 })
-      })
+      }))
 
       await service.disableUserAccount('some_user_id', 'some_access_token')
 
@@ -154,7 +160,7 @@ describe('the admin service', () => {
     })
 
     it('should throw an error if the synapse admin API call fails', async () => {
-      global.fetch = mock().mockRejectedValue(new Error('some_error'))
+      useFetchMock(mock().mockRejectedValue(new Error('some_error')))
 
       await expect(
         service.disableUserAccount('some_user_id', 'some_access_token')
