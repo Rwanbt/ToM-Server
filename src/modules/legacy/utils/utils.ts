@@ -6,7 +6,7 @@ import type { TwakeLogger } from '../logger/index';
 import type { NextFunction, Request, Response } from "express";
 import { errMsg } from "./errors";
 
-export const hostnameRe =
+export const hostnameRe: RegExp =
   /^((([a-zA-Z0-9][-a-zA-Z0-9]*)?[a-zA-Z0-9])[.])*([a-zA-Z][-a-zA-Z0-9]*[a-zA-Z0-9]|[a-zA-Z])(:(\d+))?$/;
 
 export type expressAppHandler = (
@@ -29,18 +29,27 @@ export const send = (res: Response | http.ServerResponse, status: number, body: 
   res.end();
 };
 
+export const MAX_JSON_CONTENT_BYTES: number = 1024 * 1024;
+
 export const jsonContent = (
   req: Request | http.IncomingMessage,
   res: Response | http.ServerResponse,
   logger: TwakeLogger,
   callback: (obj: Record<string, string>) => void,
 ): void => {
-  let content = "";
-  let accept = true;
+  let content: string | object = "";
+  let receivedBytes = 0;
+  let finished = false;
   const end = (): void => {
+    if (finished) return;
+    finished = true;
     let obj;
     try {
       if (typeof content === "string") {
+        if (Buffer.byteLength(content, "utf-8") > MAX_JSON_CONTENT_BYTES) {
+          send(res, 413, errMsg("tooLarge"));
+          return;
+        }
         // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
         if (req.headers["content-type"]?.match(/^application\/x-www-form-urlencoded/)) {
           obj = querystring.parse(content);
@@ -55,9 +64,9 @@ export const jsonContent = (
       // or other user-provided secrets; never echo them to logs or clients.
       logger.error("Malformed JSON request body");
       send(res, 400, errMsg("unknown"));
-      accept = false;
+      return;
     }
-    if (accept) callback(obj);
+    callback(obj);
   };
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment, @typescript-eslint/prefer-ts-expect-error
   /* istanbul ignore if */ // @ts-expect-error
@@ -66,14 +75,23 @@ export const jsonContent = (
     // @ts-expect-error
     content = req.body;
     end();
+    return;
   }
-  req.on("data", (body: string) => {
-    content += body;
+  req.on("data", (body: string | Buffer) => {
+    if (finished) return;
+    receivedBytes += Buffer.isBuffer(body) ? body.byteLength : Buffer.byteLength(body, "utf-8");
+    if (receivedBytes > MAX_JSON_CONTENT_BYTES) {
+      finished = true;
+      send(res, 413, errMsg("tooLarge"));
+      return;
+    }
+    content = String(content) + body.toString();
   });
   /* istanbul ignore next */
   req.on("error", () => {
+    if (finished) return;
+    finished = true;
     send(res, 400, errMsg("unknown"));
-    accept = false;
   });
   req.on("end", end);
 };
@@ -359,5 +377,5 @@ export const getLocalPart = (id: string): string | null => {
   if (!id || !id.startsWith("@")) return null;
   const parts = id.split(":");
   if (parts.length < 2) return null;
-  return parts[0].slice(1);
+  return parts[0]?.slice(1) ?? null;
 };

@@ -43,4 +43,13 @@ redacted logger calls. Two targeted suites pass locally on Bun 1.3.11:
 **14 tests, 37 assertions**. Linux full-suite and type-check reruns are
 mandatory; these local results alone do not establish global PASS.
 
+## Bounded JSON ingestion
+
+An additional RED→GREEN set demonstrates previously unbounded JSON
+stream accumulation and a duplicate callback for pre-parsed Express
+requests. The parser now rejects bodies larger than one MiB with 413,
+counts UTF-8 bytes rather than characters, ignores late events after
+error/oversize completion and invokes each parsed callback at most once.
+These paths use only synthetic secrets; no production services are used.
+
 This patch does **not** certify all token ingress, distributed rate limiting, external SSO, UI/UX, or production deployments. Never use real secrets in these tests, and do not merge without mandatory independent CI verification on the exact PR HEAD.
