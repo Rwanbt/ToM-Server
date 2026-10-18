@@ -7,7 +7,7 @@ import type UserDB from '../userdb'
 import { epoch, toMatrixId, getLocalPart } from '../../utils/index'
 
 type AnyDb = IdentityServerDb<any>
-type UserRecord = Record<string, string>
+type UserRecord = { uid: string; mail: string; mobile: string }
 type Task = () => Promise<unknown>
 
 interface SyncCtx {
@@ -78,6 +78,20 @@ const getHashes = async (db: AnyDb): Promise<Map<string, number>> => {
 
 const CHUNK_SIZE = 10
 
+// Invalid directory snapshots must not be treated as an empty user list: doing
+// so could mark legitimate accounts inactive during the reconciliation step.
+const parseUsers = (rows: Awaited<ReturnType<UserDB['getAll']>>): UserRecord[] =>
+  rows.map(row => {
+    if (typeof row.uid !== 'string' || row.uid.length === 0) {
+      throw new Error('User sync directory returned a user without a valid uid')
+    }
+    return {
+      uid: row.uid,
+      mail: typeof row.mail === 'string' ? row.mail : '',
+      mobile: typeof row.mobile === 'string' ? row.mobile : ''
+    }
+  })
+
 const executeTasks = async (tasks: Task[], logger: TwakeLogger): Promise<number> => {
   let failed = 0
   for (let i = 0; i < tasks.length; i += CHUNK_SIZE) {
@@ -138,9 +152,10 @@ const setInactive = (ctx: SyncCtx, uid: string): Task => async () => {
     return
   }
   const rows = await ctx.db.get('userHistory', ['active'], { address: addr })
-  if (!rows || rows.length === 0) {
+  const currentHistory = rows?.[0]
+  if (!currentHistory) {
     await ctx.db.insert('userHistory', { address: addr, active: 0, timestamp: ctx.ts })
-  } else if (rows[0].active !== 0) {
+  } else if (currentHistory.active !== 0) {
     await ctx.db.update('userHistory', { active: 0 }, 'address', addr)
   }
 }
@@ -159,7 +174,7 @@ const updateUsers = async <T extends string = never>(
   const [ctx, activeMap, users] = await Promise.all([
     buildContext(conf, db, logger),
     getHashes(db),
-    userDB.getAll('users', ['uid', 'mail', 'mobile']) as Promise<UserRecord[]>,
+    userDB.getAll('users', ['uid', 'mail', 'mobile']).then(parseUsers),
   ]).catch((err) => {
     logger.error('Failed to load initial data for user sync', err)
     throw err

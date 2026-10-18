@@ -22,13 +22,14 @@ const updateKey = async (
       name: 'previousKey'
     })
 
-    if (previousKeyRows.length === 0) {
+    const previousKey = previousKeyRows?.[0]
+    if (!previousKey) {
       /* istanbul ignore next */
       throw new Error('No previousKey found')
     }
 
     // Check if keyID is in the correct format /^ed25519:[A-Za-z0-9_-]+$/
-    if (!/^ed25519:[A-Za-z0-9_-]+$/.test(previousKeyRows[0].keyID as string)) {
+    if (typeof previousKey.keyID !== 'string' || !/^ed25519:[A-Za-z0-9_-]+$/.test(previousKey.keyID)) {
       /* istanbul ignore next */
       throw new Error('previousKey value is not valid')
     }
@@ -39,7 +40,9 @@ const updateKey = async (
       { name: 'currentKey' }
     )
 
-    if (currentKeyRows.length === 0) {
+    const currentKey = currentKeyRows?.[0]
+    if (!currentKey || typeof currentKey.keyID !== 'string' ||
+        typeof currentKey.public !== 'string' || typeof currentKey.private !== 'string') {
       /* istanbul ignore next */
       throw new Error('currentKey undefined')
     }
@@ -54,9 +57,9 @@ const updateKey = async (
       await db.update(
         'longTermKeypairs',
         {
-          keyID: currentKeyRows[0].keyID as string,
-          public: currentKeyRows[0].public as string,
-          private: currentKeyRows[0].private as string
+          keyID: currentKey.keyID,
+          public: currentKey.public,
+          private: currentKey.private
         },
         'name',
         'previousKey'
@@ -64,7 +67,8 @@ const updateKey = async (
       logger.info('Previous key updated successfully')
     } catch (error) {
       /* istanbul ignore next */
-      logger.error('Error updating previous key', error)
+      // Database exceptions can include private signing material or connection secrets.
+      logger.error('Error updating previous key')
       /* istanbul ignore next */
       throw error
     }
@@ -83,15 +87,15 @@ const updateKey = async (
       logger.info('Current key updated successfully')
     } catch (error) {
       /* istanbul ignore next */
-      logger.error('Error updating current key', error)
+      logger.error('Error updating current key')
       /* istanbul ignore next */
       throw error
     }
 
     logger.info('Long-term key updated successfully')
-  } catch (error) {
+  } catch {
     /* istanbul ignore next */
-    logger.error('Error updating long-term key', error)
+    logger.error('Error updating long-term key')
   }
 }
 
