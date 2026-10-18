@@ -105,4 +105,39 @@ describe('untrusted JSON body handling', () => {
     expect(res.end).toHaveBeenCalledTimes(1)
     expect(accepted).not.toHaveBeenCalled()
   })
+
+  it('reassembles split UTF-8 characters before JSON parsing without corrupting data', () => {
+    const events: Record<string, (data?: any) => void> = {}
+    const req = {
+      headers: { 'content-type': 'application/json' },
+      on: (name: string, callback: (data?: any) => void) => { events[name] = callback }
+    }
+    const res = { writeHead: mock(), write: mock(), end: mock() }
+    const accepted = mock()
+    const encoded = Buffer.from('{"text":"été €"}', 'utf8')
+    const splitAt = encoded.indexOf(Buffer.from('€')) + 1
+    jsonContent(req as any, res as any, { error: mock() } as any, accepted)
+    events.data?.(encoded.subarray(0, splitAt))
+    events.data?.(encoded.subarray(splitAt))
+    events.end?.()
+    expect(accepted).toHaveBeenCalledTimes(1)
+    expect(accepted).toHaveBeenCalledWith({ text: 'été €' })
+    expect(res.writeHead).not.toHaveBeenCalled()
+  })
+
+  it('rejects malformed UTF-8 rather than silently changing submitted JSON values', () => {
+    const events: Record<string, (data?: any) => void> = {}
+    const req = {
+      headers: { 'content-type': 'application/json' },
+      on: (name: string, callback: (data?: any) => void) => { events[name] = callback }
+    }
+    const res = { writeHead: mock(), write: mock(), end: mock() }
+    const accepted = mock()
+    jsonContent(req as any, res as any, { error: mock() } as any, accepted)
+    events.data?.(Buffer.concat([Buffer.from('{"text":"'), Buffer.from([0xC3, 0x28]), Buffer.from('"}')]))
+    events.end?.()
+    expect(accepted).not.toHaveBeenCalled()
+    expect(res.writeHead).toHaveBeenCalledWith(400, expect.any(Object))
+    expect(res.end).toHaveBeenCalledTimes(1)
+  })
 })

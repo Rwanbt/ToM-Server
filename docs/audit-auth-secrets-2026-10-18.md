@@ -52,6 +52,13 @@ counts UTF-8 bytes rather than characters, ignores late events after
 error/oversize completion and invokes each parsed callback at most once.
 These paths use only synthetic secrets; no production services are used.
 
+An additional transport RED→GREEN pair checks a multibyte UTF-8 code point
+split between network chunks and malformed UTF-8 input. The ingress now
+buffers at most one MiB of raw bytes, decodes the **complete** message
+with fatal UTF-8 validation and only then parses JSON. It no longer
+silently corrupts valid Unicode or accepts replacement characters for
+invalid UTF-8. Focused auth/JSON suite: **11 pass, 33 assertions** locally.
+
 ## Toolchain determinism
 
 The original callable PR test workflow passed on Bun **1.4.3** while the

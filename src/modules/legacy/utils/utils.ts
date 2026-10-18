@@ -39,12 +39,18 @@ export const jsonContent = (
 ): void => {
   let content: string | object = "";
   let receivedBytes = 0;
+  // Decode only after the complete byte sequence is received. TCP chunks
+  // may split a UTF-8 code point; per-chunk toString() silently corrupts it.
+  const rawChunks: Buffer[] = [];
   let finished = false;
   const end = (): void => {
     if (finished) return;
     finished = true;
     let obj;
     try {
+      if (rawChunks.length > 0) {
+        content = new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(rawChunks, receivedBytes));
+      }
       if (typeof content === "string") {
         if (Buffer.byteLength(content, "utf-8") > MAX_JSON_CONTENT_BYTES) {
           send(res, 413, errMsg("tooLarge"));
@@ -79,13 +85,14 @@ export const jsonContent = (
   }
   req.on("data", (body: string | Buffer) => {
     if (finished) return;
-    receivedBytes += Buffer.isBuffer(body) ? body.byteLength : Buffer.byteLength(body, "utf-8");
+    const chunk = Buffer.isBuffer(body) ? body : Buffer.from(body, "utf-8");
+    receivedBytes += chunk.byteLength;
     if (receivedBytes > MAX_JSON_CONTENT_BYTES) {
       finished = true;
       send(res, 413, errMsg("tooLarge"));
       return;
     }
-    content = String(content) + body.toString();
+    rawChunks.push(chunk);
   });
   /* istanbul ignore next */
   req.on("error", () => {
