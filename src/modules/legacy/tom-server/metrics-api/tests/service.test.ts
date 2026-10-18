@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, mock } from 'bun:test'
 import { type TwakeLogger } from '../../../logger'
 import Service from '../services'
-import { type MatrixDBBackend } from '../../../../matrix-identity-server'
+import { type MatrixDBBackend } from '../../../matrix-identity-server'
 
 const dbMock = {
   get: mock(),

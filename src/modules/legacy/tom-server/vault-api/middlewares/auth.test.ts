@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, mock, spyOn, test } from "bun:test"
-import { type ConfigDescription } from '../../../../config-parser'
+import { type ConfigDescription } from '../../../config-parser'
 import { type TwakeLogger } from '../../../logger'
 import { IdentityServerDb, type MatrixDB } from '../../../matrix-identity-server'
 import {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, mock, test, type Mock } from "bun:test"
 import type { TwakeLogger } from '../../../logger'
-import type { MatrixDB, UserDB } from '../../../../matrix-identity-server'
+import type { MatrixDB, UserDB } from '../../../matrix-identity-server'
 import type { Response, NextFunction } from 'express'
 import InvitationApiController from '../controllers'
 import type { AuthRequest, Config, TwakeDB } from '../../types'

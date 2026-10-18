@@ -5,7 +5,7 @@ import supertest from 'supertest'
 import type { AuthRequest, Config } from '../../types'
 import router, { PATH } from '../routes'
 import type { TwakeLogger } from '../../../logger'
-import { type MatrixDBBackend } from '../../../../matrix-identity-server'
+import { type MatrixDBBackend } from '../../../matrix-identity-server'
 import { type UserMessageCount, type MatrixUserInfo } from '../types'
 
 const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000
