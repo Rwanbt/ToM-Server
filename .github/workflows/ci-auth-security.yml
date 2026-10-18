@@ -28,7 +28,8 @@ jobs:
             src/modules/legacy/matrix-identity-server/authentication-security.test.ts \
             src/modules/legacy/tom-server/identity-server/utils/authentication-security.test.ts \
             src/modules/legacy/utils/json-content-security.test.ts \
-            src/modules/legacy/utils/json-http-security.test.ts
+            src/modules/legacy/utils/json-http-security.test.ts \
+            src/modules/legacy/matrix-identity-server/db/token-security.test.ts
 
   full-regression:
     runs-on: ubuntu-latest

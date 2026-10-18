@@ -34,14 +34,14 @@ class Cache implements CacheType {
   }
 
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-  async get(key: string) {
+  async get(key: string): Promise<DbGetResult | null> {
     /* istanbul ignore if */
     if (this.db == null) return null
     return await this.db.get(key)
   }
 
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-  async set(key: string, value: DbGetResult) {
+  async set(key: string, value: DbGetResult): Promise<void> {
     /* istanbul ignore if */
     if (this.db == null) throw new Error('Cache not ready, please wait')
     await this.db.set(key, value)

@@ -121,3 +121,25 @@ No tsconfig flags were weakened. The inherited remaining 871 errors
 are still a blocking NO-GO.
 
 This patch does **not** certify all token ingress, distributed rate limiting, external SSO, UI/UX, or production deployments. Never use real secrets in these tests, and do not merge without mandatory independent CI verification on the exact PR HEAD.
+
+## Token and key persistence: fail-closed regressions (additional tranche)
+
+The actual `IdentityServerDb` wrapper previously swallowed SQL failures in
+`createOneTimeToken`, `deleteToken`, and `deleteKey`. An INSERT failure
+left a Promise forever unresolved; failed revocation misleadingly resolved,
+so `verifyOneTimeToken` could report successful consumption after an
+unsuccessful DELETE. Absent rows in `verifyToken` caused a TypeError and
+could surface an internal expiration value in the rejection message.
+
+`src/modules/legacy/matrix-identity-server/db/token-security.test.ts`
+uses the real production methods and disposable in-process SQL methods.
+Before the fixes **5/7 failed**; afterwards **7/7 pass** with no real
+tokens, database, or user secrets. Logs now contain generic operation names
+instead of token/key IDs and database exception details.
+
+The DB wrapper now has 18 exact return-type declarations consistent with
+`IdDbBackend`, and two memory cache methods plus two wrapper cache
+methods have explicit return types. These are checked under unchanged
+`isolatedDeclarations` and the unchanged baseline comparator. Local Bun
+1.3.11 strict errors dropped **801 → 772** on this worktree after repair,
+but the mandatory strict typecheck remains FAIL and **NO-GO**.
