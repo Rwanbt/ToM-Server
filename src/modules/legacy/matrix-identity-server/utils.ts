@@ -34,11 +34,8 @@ export const Authenticate = <T extends string = never>(
         .then((rows) => {
           // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
           if (!rows || rows.length === 0) {
-            logger.error(
-              `${req.socket.remoteAddress as string} sent an inexistent token ${
-                token as string
-              }`
-            )
+            // Never log a bearer token, including tokens that are unknown to us.
+            logger.error(`${req.socket.remoteAddress as string} sent an inexistent token`)
             send(res, 401, errMsg('unAuthorized'))
           } else {
             if (requiresTerms) {
@@ -76,11 +73,10 @@ export const Authenticate = <T extends string = never>(
             }
           }
         })
-        .catch((e) => {
-          logger.error(
-            `${req.socket.remoteAddress as string} sent an invalid token`,
-            e
-          )
+        .catch(() => {
+          // Database errors may contain the lookup key (the full bearer token).
+          // Do not pass untrusted exception objects into an application logger.
+          logger.error(`${req.socket.remoteAddress as string} sent an invalid token`)
           send(res, 401, errMsg('unAuthorized'))
         })
     } else {

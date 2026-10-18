@@ -50,10 +50,11 @@ export const jsonContent = (
       } else {
         obj = content;
       }
-    } catch (err) {
-      logger.error("JSON error", err);
-      logger.error(`Content was: ${content}`);
-      send(res, 400, errMsg("unknown", err as string));
+    } catch {
+      // Bodies and parser exceptions can contain credentials, recovery keys,
+      // or other user-provided secrets; never echo them to logs or clients.
+      logger.error("Malformed JSON request body");
+      send(res, 400, errMsg("unknown"));
       accept = false;
     }
     if (accept) callback(obj);
@@ -70,8 +71,8 @@ export const jsonContent = (
     content += body;
   });
   /* istanbul ignore next */
-  req.on("error", (err) => {
-    send(res, 400, errMsg("unknown", err.message));
+  req.on("error", () => {
+    send(res, 400, errMsg("unknown"));
     accept = false;
   });
   req.on("end", end);

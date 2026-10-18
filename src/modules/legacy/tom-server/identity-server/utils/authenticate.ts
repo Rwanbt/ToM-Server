@@ -66,16 +66,16 @@ const Authenticate = (
                   // @ts-ignore token is defined
                   id: token,
                   data: JSON.stringify(data)
-                }).catch((e) => {
+                }).catch(() => {
                   /* istanbul ignore next */
-                  logger.error('Unable to insert a token', e)
+                  logger.error('Unable to insert a token')
                 })
                 // eslint-disable-next-line n/no-callback-literal
                 // eslint-disable-next-line @typescript-eslint/ban-ts-comment, @typescript-eslint/prefer-ts-expect-error
                 // @ts-ignore token is defined
                 callback(data, token)
               } else {
-                logger.info('Bad local token, trying remote', userInfo)
+                logger.info('Bad local token, trying remote')
                 remoteAuth(req, res, (...args) => {
                   logger.info(
                     '[From Remote]: Token that locally failed was validated'
@@ -84,15 +84,16 @@ const Authenticate = (
                 })
               }
             })
-            .catch((e) => {
+            .catch(() => {
               /* istanbul ignore next */
-              logger.debug('Fetch error', e)
+              logger.debug('Fetch error')
               /* istanbul ignore next */
               send(res, 401, errMsg('unAuthorized'))
             })
         })
     } else {
-      logger.warn('Access tried without token', req.headers)
+      // Headers can contain cookies or Authorization secrets from other schemes.
+      logger.warn('Access tried without token')
       send(res, 401, errMsg('unAuthorized'))
     }
   }
