@@ -96,8 +96,16 @@ jobs:
             echo 'Unexpected TypeScript runner status; refusing unverified comparison' >&2
             exit 1
           fi
-          # The pre-existing type errors remain release-blocking, but every
-          # compiler-reported missing type-only import must now be fixed.
-          node ci/fix-type-only-imports.cjs --check --log "$RUNNER_TEMP/candidate-tsc.log"
+          # A successful strict compiler emits no diagnostics. Only inspect
+          # TS1484 locations when the candidate compiler actually failed;
+          # never treat an empty error log as proof when its exit code is 1.
+          if [[ "$candidate_status" -eq 0 ]]; then
+            if grep -Eq 'error TS[0-9]+:' "$RUNNER_TEMP/candidate-tsc.log"; then
+              echo 'Compiler exited successfully but emitted diagnostics' >&2
+              exit 1
+            fi
+          else
+            node ci/fix-type-only-imports.cjs --check --log "$RUNNER_TEMP/candidate-tsc.log"
+          fi
           node ci/compare-typecheck.cjs \
             "$RUNNER_TEMP/baseline-tsc.log" "$RUNNER_TEMP/candidate-tsc.log"
