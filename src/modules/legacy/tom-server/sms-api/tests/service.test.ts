@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it, mock, spyOn, test } from 'bun:test'
+import { afterAll, beforeEach, describe, expect, it, mock, spyOn, test, type Mock } from 'bun:test'
 import { getLogger } from '../../../logger'
 import fetch, { type Response } from 'node-fetch'
 import { type Config } from '../../types'

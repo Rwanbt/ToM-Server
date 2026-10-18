@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test"
+import { beforeEach, describe, expect, it, mock, type Mock } from "bun:test"
 import DisplayNameController from '../controllers'
 import type DisplayNameService from '../services'
 import { errCodes } from '../../../../../utils'

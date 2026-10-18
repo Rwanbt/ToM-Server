@@ -470,6 +470,18 @@ describe("twakeConfig - Edge Cases and Error Handling", () => {
     );
   });
 
+  test("Rejects partial, non-finite, and non-decimal numeric configuration from the environment", () => {
+    for (const invalid of ["3000ms", "Infinity", "1e309", "0x10", "   "]) {
+      process.env.NUMBER_KEY = invalid;
+      expect(() => twakeConfig(createTestConfigDesc(), undefined, true)).toThrow(ConfigCoercionError);
+    }
+  });
+
+  test("Accepts a finite decimal in scientific notation for numeric configuration", () => {
+    process.env.NUMBER_KEY = "1.25e2";
+    expect(twakeConfig(createTestConfigDesc(), undefined, true).NUMBER_KEY).toBe(125);
+  });
+
   test("Should throw ConfigCoercionError for invalid JSON format from environment variable (JSON type)", () => {
     process.env.JSON_KEY = "{invalid json";
     expect(() => twakeConfig(createTestConfigDesc(), undefined, true)).toThrow(ConfigCoercionError);

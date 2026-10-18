@@ -1,6 +1,6 @@
 /* eslint-disable n/no-callback-literal */
 /* eslint-disable @typescript-eslint/consistent-type-assertions */
-import { beforeEach, describe, expect, it, mock, test } from 'bun:test'
+import { beforeEach, describe, expect, it, mock, test, type Mock } from 'bun:test'
 import bodyParser from 'body-parser'
 import express, { type NextFunction } from 'express'
 import fetch, { type Response } from 'node-fetch'

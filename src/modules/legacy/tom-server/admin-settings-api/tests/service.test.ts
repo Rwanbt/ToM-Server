@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-type-assertion */
 /* eslint-disable @typescript-eslint/dot-notation */
-import { afterEach, beforeEach, describe, expect, it, mock, spyOn, test, vi } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it, mock, spyOn, test, vi, type Mock } from 'bun:test'
 import AdminService from '../services'
 import conf from '../../../defaultConfig.json'
 
