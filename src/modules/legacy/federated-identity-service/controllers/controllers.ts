@@ -78,6 +78,13 @@ export const lookups = (db: FdServerDb): expressAppHandler => {
     validationErrorHandler(req)
     const pepper = req.body.pepper
     const serverAddress = Object.keys(req.body.mappings)[0]
+    if (!serverAddress) {
+      next(new FederatedIdentityServiceError({
+        message: 'No federation server address provided',
+        code: errCodes.unknown
+      }))
+      return
+    }
     const hashes = req.body.mappings[serverAddress] as string[]
 
     db.get('keys', ['data'], { name: ['pepper', 'previousPepper'] })
@@ -134,13 +141,22 @@ export const hashDetails = (
     db.get('keys', ['data'], { name: 'pepper' })
       .then((rows) => {
         const resp: HashDetailsObject = {
-          algorithms: supportedHashes,
-          lookup_pepper: rows[0].data as string
+          // The public response DTO owns a mutable JSON array, while the
+          // validated algorithm registry is an immutable tuple.
+          algorithms: [...supportedHashes],
+          lookup_pepper: (() => {
+            const pepper = rows[0]?.data
+            if (typeof pepper !== 'string' || pepper.length === 0) {
+              throw new Error('No current federation pepper is configured')
+            }
+            return pepper
+          })()
         }
         db.get('keys', ['data'], { name: 'previousPepper' })
           .then((rows2) => {
-            if (rows2 != null && rows2.length > 0)
-              resp.alt_lookup_peppers = [rows2[0].data as string]
+            const previous = rows2?.[0]?.data
+            if (typeof previous === 'string' && previous.length > 0)
+              resp.alt_lookup_peppers = [previous]
             res.json(resp)
           })
           .catch((e) => {
