@@ -52,4 +52,15 @@ counts UTF-8 bytes rather than characters, ignores late events after
 error/oversize completion and invokes each parsed callback at most once.
 These paths use only synthetic secrets; no production services are used.
 
+## Toolchain determinism
+
+The original callable PR test workflow passed on Bun **1.4.3** while the
+new full-regression job running exactly the same command failed many tests
+on pinned Bun **1.3.11**. Both paths now pin the proven Bun 1.4.3 runtime
+and the critical checkout/setup actions by immutable commit. A separate
+Node.js policy test checks for toolchain drift and ensures Biome failures
+can no longer be marked `continue-on-error`. This only resolves the
+runner divergence if the SHA-exact Linux rerun confirms matching results;
+TypeScript 7 errors remain an independent **NO-GO**.
+
 This patch does **not** certify all token ingress, distributed rate limiting, external SSO, UI/UX, or production deployments. Never use real secrets in these tests, and do not merge without mandatory independent CI verification on the exact PR HEAD.

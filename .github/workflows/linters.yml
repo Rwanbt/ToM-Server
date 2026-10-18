@@ -55,7 +55,7 @@ jobs:
     needs: detect-changes
     if: needs.detect-changes.outputs.biome == 'true'
     runs-on: ubuntu-latest
-    continue-on-error: true
+    # Treat real source-formatting violations as blocking regressions.
     steps:
       - uses: actions/checkout@v7
         with:
