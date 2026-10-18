@@ -52,11 +52,8 @@ const bind = <T extends string = never>(
           } else if (!sidRe.test(sid)) {
             send(res, 400, errMsg('invalidParam', 'invalid session ID'))
           } else {
-            idServer.logger.debug(
-              `bind request to associate 3pid with matrix_ID ${JSON.stringify(
-                obj
-              )}`
-            )
+            // The payload contains client_secret and sid: neither belongs in logs.
+            idServer.logger.debug(`bind request to associate 3pid with matrix_ID ${mxid}`)
 
             idServer.db
               .get('mappings', ['address', 'medium', 'submit_time', 'valid'], {
@@ -64,7 +61,8 @@ const bind = <T extends string = never>(
                 client_secret: clientSecret
               })
               .then((rows) => {
-                if (rows.length === 0) {
+                const mapping = rows[0]
+                if (!mapping) {
                   send(res, 404, {
                     errcode: 'M_NO_VALID_SESSION',
                     error:
@@ -72,7 +70,7 @@ const bind = <T extends string = never>(
                   })
                   return
                 }
-                if (rows[0].valid === 0) {
+                if (mapping.valid === 0) {
                   send(res, 400, {
                     errcode: 'M_SESSION_NOT_VALIDATED',
                     error: 'This validation session has not yet been completed'
@@ -83,8 +81,8 @@ const bind = <T extends string = never>(
                 _onBind(
                   idServer,
                   (obj as RequestTokenArgs).mxid,
-                  rows[0].address as string,
-                  rows[0].medium as string
+                  mapping.address as string,
+                  mapping.medium as string
                 )
                   .then(() => {
                     idServer.logger.info(`Finished server onbind for ${mxid}`)
@@ -96,46 +94,55 @@ const bind = <T extends string = never>(
                 idServer.db
                   .get('keys', ['data'], { name: 'pepper' })
                   .then(async (pepperRow) => {
-                    const field = rows[0].medium === 'email' ? 'mail' : 'msisdn'
+                    const pepper = pepperRow[0]?.data
+                    if (typeof pepper !== 'string' || !pepper) {
+                      idServer.logger.error('No valid pepper configured for 3pid binding')
+                      send(res, 500, errMsg('unknown'))
+                      return
+                    }
+                    const field = mapping.medium === 'email' ? 'mail' : 'msisdn'
                     const hash = new Hash()
                     await hash.ready
                     await idServer.db.insert('hashes', {
                       hash: hash.sha256(
-                        `${rows[0].address as string} ${field} ${
-                          pepperRow[0].data as string
-                        }`
+                        `${mapping.address as string} ${field} ${pepper}`
                       ),
-                      pepper: pepperRow[0].data as string,
+                      pepper,
                       type: field,
                       value: mxid,
                       active: 1
                     })
                     const body: ResponseArgs = {
-                      address: rows[0].address as string,
-                      medium: rows[0].medium as string,
+                      address: mapping.address as string,
+                      medium: mapping.medium as string,
                       mxid,
                       not_after:
-                        (rows[0].submit_time as number) + 86400000 * 36500,
-                      not_before: rows[0].submit_time as number,
-                      ts: rows[0].submit_time as number
+                        (mapping.submit_time as number) + 86400000 * 36500,
+                      not_before: mapping.submit_time as number,
+                      ts: mapping.submit_time as number
                     }
                     idServer.db
                       .get('longTermKeypairs', ['keyID', 'private'], {})
                       .then((keyrows) => {
+                        const keypair = keyrows[0]
                         if (
-                          typeof keyrows[0].private === 'string' &&
-                          typeof keyrows[0].keyID === 'string'
+                          keypair &&
+                          typeof keypair.private === 'string' &&
+                          typeof keypair.keyID === 'string'
                         ) {
                           send(
                             res,
                             200,
                             signJson(
                               body,
-                              keyrows[0].private,
+                              keypair.private,
                               idServer.conf.server_name,
-                              keyrows[0].keyID
+                              keypair.keyID
                             )
                           )
+                        } else {
+                          idServer.logger.error('No valid signing key configured for 3pid binding')
+                          send(res, 500, errMsg('unknown'))
                         }
                       })
                       .catch((err) => {
