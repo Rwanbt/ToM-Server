@@ -27,4 +27,10 @@ Before the repair, the unknown-token test, DB-error test, cookie-header test and
 
 Running `bun test --isolate` against this local tree: **511 pass, 358 fail, 869 total across 77 files**. Running `bun run type-check` also fails on numerous TypeScript 7 `--isolatedDeclarations`, missing third-party types and older legacy code errors. These must be investigated against the unmodified base and corrected in separate, scoped changes; no claim of complete suite readiness is made here.
 
+The added `.github/workflows/ci-auth-security.yml` enforces a focused
+security job **plus** independent non-optional full-regression and type-check
+jobs. Until GitHub registers and executes the workflow and the existing
+baselines are repaired, this PR is a strict **NO-GO**. A local unit PASS
+does not waive any of the release gates.
+
 This patch does **not** certify all token ingress, distributed rate limiting, external SSO, UI/UX, or production deployments. Never use real secrets in these tests, and do not merge without mandatory independent CI verification on the exact PR HEAD.
