@@ -140,4 +140,35 @@ describe('untrusted JSON body handling', () => {
     expect(res.writeHead).toHaveBeenCalledWith(400, expect.any(Object))
     expect(res.end).toHaveBeenCalledTimes(1)
   })
+
+  it('rejects an already parsed oversized Express body instead of bypassing the byte limit', () => {
+    const on = mock()
+    const callback = mock()
+    const res = { writeHead: mock(), write: mock(), end: mock() }
+    jsonContent(
+      { headers: {}, body: { payload: 'x'.repeat(1_100_000) }, on } as any,
+      res as any,
+      { error: mock() } as any,
+      callback
+    )
+    expect(callback).not.toHaveBeenCalled()
+    expect(res.writeHead).toHaveBeenCalledWith(413, expect.any(Object))
+    expect(res.end).toHaveBeenCalledTimes(1)
+    expect(on).not.toHaveBeenCalled()
+  })
+
+  it('does not echo a circular pre-parsed request body or invoke its callback', () => {
+    const payload: any = { password: SECRET }
+    payload.self = payload
+    const logger = { error: mock() }
+    const callback = mock()
+    const res = { writeHead: mock(), write: mock(), end: mock() }
+    jsonContent(
+      { headers: {}, body: payload, on: mock() } as any,
+      res as any, logger as any, callback
+    )
+    expect(callback).not.toHaveBeenCalled()
+    expect(res.writeHead).toHaveBeenCalledWith(400, expect.any(Object))
+    expect(JSON.stringify(logger.error.mock.calls)).not.toContain(SECRET)
+  })
 })

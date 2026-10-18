@@ -63,6 +63,12 @@ export const jsonContent = (
           obj = JSON.parse(content);
         }
       } else {
+        // An upstream Express parser can populate req.body before this
+        // handler is attached. Enforce the same byte budget on that path.
+        if (Buffer.byteLength(JSON.stringify(content), "utf-8") > MAX_JSON_CONTENT_BYTES) {
+          send(res, 413, errMsg("tooLarge"));
+          return;
+        }
         obj = content;
       }
     } catch {

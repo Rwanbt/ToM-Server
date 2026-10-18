@@ -59,6 +59,12 @@ with fatal UTF-8 validation and only then parses JSON. It no longer
 silently corrupts valid Unicode or accepts replacement characters for
 invalid UTF-8. Focused auth/JSON suite: **11 pass, 33 assertions** locally.
 
+The same one-MiB budget now applies to already-parsed Express `req.body`
+objects; previously that route bypassed streaming bounds entirely. Circular
+objects are rejected with a sanitized 400 and cannot reach downstream
+callbacks. Both cases have RED→GREEN tests. Updated focused suite:
+**13 pass, 40 assertions** under Bun 1.3.11; GitHub verifies on 1.4.3.
+
 ## Toolchain determinism
 
 The original callable PR test workflow passed on Bun **1.4.3** while the
