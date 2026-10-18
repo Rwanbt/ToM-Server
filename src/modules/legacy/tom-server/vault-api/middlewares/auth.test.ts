@@ -115,6 +115,7 @@ describe('Auth middleware', () => {
 
   beforeEach(() => {
     fetchMock.mockResolvedValue({
+      ok: true,
       json: mock().mockResolvedValue(matrixServerResponseBody)
     })
     mockRequest = {
@@ -249,6 +250,7 @@ describe('Auth middleware', () => {
     const errorMatrixServer = new Error('An error occured with Matrix Server')
     spyOn(idServer.db, 'get').mockResolvedValue([])
     fetchMock.mockResolvedValue({
+      ok: true,
       json: mock().mockRejectedValue(errorMatrixServer)
     })
     const handler: expressAppHandler = isAuth(idServer.authenticate)
@@ -267,6 +269,7 @@ describe('Auth middleware', () => {
     const userInfo = { ...matrixServerResponseBody, user_id: null }
     spyOn(idServer.db, 'get').mockResolvedValue([])
     fetchMock.mockResolvedValue({
+      ok: true,
       json: mock().mockResolvedValue(userInfo)
     })
     const handler: expressAppHandler = isAuth(idServer.authenticate)

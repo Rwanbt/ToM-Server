@@ -103,6 +103,7 @@ describe('Vault API server', () => {
 
   beforeEach(() => {
     fetchMock.mockResolvedValue({
+      ok: true,
       json: mock().mockResolvedValue(matrixServerResponseBody)
     })
     mock.clearAllMocks()
