@@ -56,7 +56,8 @@ const unbind = <T extends string = never>(
                   client_secret: clientSecret
                 })
                 .then((rows) => {
-                  if (rows.length === 0) {
+                  const mapping = rows[0]
+                  if (!mapping) {
                     send(
                       res,
                       403,
@@ -68,7 +69,7 @@ const unbind = <T extends string = never>(
                   } else {
                     if (
                       (obj as RequestTokenArgs).threepid.address !==
-                      rows[0].address
+                      mapping.address
                     ) {
                       send(res, 403, errMsg('invalidParam', 'invalid address'))
                     } else {
@@ -77,28 +78,27 @@ const unbind = <T extends string = never>(
                         .then(() => {
                           send(res, 200, {})
                         })
-                        .catch((e) => {
+                        .catch(() => {
                           // istanbul ignore next
-                          idServer.logger.error(
-                            'Error deleting 3pid association',
-                            e
-                          )
-                          send(res, 500, errMsg('unknown', e.toString()))
+                          // Database errors can echo the client secret or sid.
+                          idServer.logger.error('Error deleting 3pid association')
+                          send(res, 500, errMsg('unknown'))
                         })
                     }
                   }
                 })
-                .catch((e) => {
+                .catch(() => {
                   // istanbul ignore next
                   idServer.logger.error(
-                    'Error finding 3pid associated with this session_id or client_secret',
-                    e
+                    'Error finding 3pid associated with this session_id or client_secret'
                   )
-                  send(res, 500, errMsg('unknown', e.toString()))
+                  send(res, 500, errMsg('unknown'))
                 })
             }
           } else {
-            // TODO : implement signature verification. If the request doesn't have a client_secret or sid, it should be signed
+            // Signed unbind is not implemented. Do not leave a request open,
+            // or treat an unauthenticated omission as authorization.
+            send(res, 400, errMsg('invalidParam', 'client_secret and sid required'))
           }
         })
       })
