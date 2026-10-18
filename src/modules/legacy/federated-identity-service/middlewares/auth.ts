@@ -19,6 +19,9 @@ export const Authenticate = (
   const tokenRe = /^Bearer (\S+)$/
   return (req, res, callbackMethod) => {
     const request = req as AuthRequest
+    // Matrix permits access_token in the query. Never include that query in
+    // structured request logs, even on an authorization failure.
+    const safeEndpointPath = request.originalUrl?.split('?')[0] ?? ''
     // Keep an IPv6 address intact: splitting on ':' discards most of it.
     // Only a deployment explicitly trusting its reverse proxy may inspect
     // X-Forwarded-For, and the originating hop is the first comma-separated IP.
@@ -32,7 +35,7 @@ export const Authenticate = (
     logger.info('', {
       ip: originalRequesterIPAddress,
       httpMethod: request.method,
-      endpointPath: request.originalUrl
+      endpointPath: safeEndpointPath
     })
     try {
       const requesterIPAddress = convertToIPv6(originalRequesterIPAddress)
@@ -90,7 +93,7 @@ export const Authenticate = (
       logger.error(`Unauthorized`, {
         ip: originalRequesterIPAddress,
         httpMethod: request.method,
-        endpointPath: request.originalUrl
+        endpointPath: safeEndpointPath
       })
       send(res, 401, errMsg('unAuthorized'))
     }
