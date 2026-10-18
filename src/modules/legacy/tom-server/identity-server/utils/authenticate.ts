@@ -18,6 +18,8 @@ const Authenticate = (
   fetchWhoAmI: typeof fetch = fetch
 ): AuthenticationFunction => {
   const tokenRe = /^Bearer (\S+)$/
+  const validMatrixUserId = (value: unknown): value is string =>
+    typeof value === 'string' && /^@[^:\s]+:[^\s]+$/.test(value)
   const remoteAuth = RemoteAuthenticate(db, logger)
   return (req, res, callback) => {
     let token: string | null = null
@@ -43,7 +45,7 @@ const Authenticate = (
           }
           const data: unknown = JSON.parse(stored)
           if (!data || typeof data !== 'object' || !('sub' in data) ||
-              typeof data.sub !== 'string' || !data.sub) {
+              !validMatrixUserId(data.sub)) {
             throw new Error('Token subject is invalid')
           }
           callback(data as tokenContent, token)
@@ -69,7 +71,7 @@ const Authenticate = (
               /* istanbul ignore else */
               // A successful HTTP response without a Matrix user ID must not
               // become an authenticated local session.
-              if (typeof uid === 'string' && /^@[^:\s]+:[^\s]+$/.test(uid)) {
+              if (validMatrixUserId(uid)) {
                 const data: tokenContent = {
                   sub: uid,
                   epoch: epoch()

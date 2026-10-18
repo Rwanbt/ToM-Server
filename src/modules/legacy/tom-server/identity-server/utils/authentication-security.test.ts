@@ -76,4 +76,19 @@ describe('legacy ToM login log hygiene', () => {
       expect(callback).not.toHaveBeenCalled()
     }
   })
+  it('rejects malformed cached Matrix subjects and checks the authoritative server', async () => {
+    const db = { get: mock(async () => [{ data: JSON.stringify({ sub: 'not-a-matrix-id', epoch: 123 }) }]), insert: mock() }
+    const logger = { warn: mock(), error: mock(), debug: mock(), info: mock() }
+    const remote = mock(async () => ({ ok: false, json: async () => ({ user_id: '@attacker:example.org' }) }))
+    let resolveOutcome!: (outcome: string) => void
+    const outcome = new Promise<string>(resolve => { resolveOutcome = resolve })
+    const callback = mock(() => resolveOutcome('authenticated'))
+    Authenticate(db as never, { matrix_server: 'example.org' } as never, logger as never, remote as never)(
+      { headers: { authorization: 'Bearer cached-token' } } as never,
+      { writeHead: (code: number) => resolveOutcome(String(code)), write: mock(), end: mock() } as never,
+      callback)
+    expect(await outcome).toBe('401')
+    expect(callback).not.toHaveBeenCalled()
+    expect(remote).toHaveBeenCalledTimes(1)
+  })
 })
