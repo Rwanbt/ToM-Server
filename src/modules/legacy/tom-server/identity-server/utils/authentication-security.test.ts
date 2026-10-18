@@ -31,4 +31,32 @@ describe('legacy ToM login log hygiene', () => {
       expect(db.get).not.toHaveBeenCalled()
     }
   })
+  it('does not authenticate a token from a non-success Matrix whoami response', async () => {
+    const db = { get: mock(async () => []), insert: mock(async () => {}) }
+    const logger = { warn: mock(), error: mock(), debug: mock(), info: mock() }
+    let resolveStatus!: (code: number) => void
+    const status = new Promise<number>(resolve => { resolveStatus = resolve })
+    const response = { writeHead: mock((code: number) => resolveStatus(code)), write: mock(), end: mock() }
+    const fetchWhoAmI = mock(async () => ({ ok: false, json: async () => ({ user_id: '@attacker:example.org' }) }))
+    const callback = mock()
+    Authenticate(db as never, { matrix_server: 'example.org' } as never, logger as never,
+      fetchWhoAmI as never)(
+        { headers: { authorization: 'Bearer invalid-token' } } as never, response as never, callback)
+    expect(await status).toBe(401)
+    expect(callback).not.toHaveBeenCalled()
+    expect(db.insert).not.toHaveBeenCalled()
+  })
+  it('continues to accept a successful Matrix whoami session', async () => {
+    const db = { get: mock(async () => []), insert: mock(async () => {}) }
+    const logger = { warn: mock(), error: mock(), debug: mock(), info: mock() }
+    const fetchWhoAmI = mock(async () => ({ ok: true, json: async () => ({ user_id: '@alice:example.org' }) }))
+    const response = { writeHead: mock(), write: mock(), end: mock() }
+    let authenticated!: (value: unknown) => void
+    const identity = new Promise<unknown>(resolve => { authenticated = resolve })
+    Authenticate(db as never, { matrix_server: 'example.org' } as never, logger as never,
+      fetchWhoAmI as never)(
+        { headers: { authorization: 'Bearer valid-token' } } as never, response as never,
+        value => authenticated(value))
+    await expect(identity).resolves.toMatchObject({ sub: '@alice:example.org' })
+  })
 })

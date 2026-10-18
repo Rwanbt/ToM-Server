@@ -14,7 +14,8 @@ export interface WhoAmIResponse {
 const Authenticate = (
   db: TwakeDB,
   conf: Config,
-  logger: TwakeLogger
+  logger: TwakeLogger,
+  fetchWhoAmI: typeof fetch = fetch
 ): AuthenticationFunction => {
   const tokenRe = /^Bearer (\S+)$/
   const remoteAuth = RemoteAuthenticate(db, logger)
@@ -49,7 +50,7 @@ const Authenticate = (
         })
         .catch((e) => {
           // Try to get token from matrix
-          fetch(
+          fetchWhoAmI(
             `https://${conf.matrix_server}/_matrix/client/r0/account/whoami`,
             {
               headers: {
@@ -59,11 +60,14 @@ const Authenticate = (
             }
           )
             // eslint-disable-next-line @typescript-eslint/promise-function-async
-            .then((res) => res.json())
+            .then((res) => {
+              if (!res.ok) throw new Error('Matrix whoami failed')
+              return res.json()
+            })
             .then((userInfo) => {
-              const uid = (userInfo as WhoAmIResponse).user_id
+              const uid = (userInfo as WhoAmIResponse | null)?.user_id
               /* istanbul ignore else */
-              if (uid != null) {
+              if (typeof uid === 'string' && uid.length > 0) {
                 const data: tokenContent = {
                   sub: uid,
                   epoch: epoch()
