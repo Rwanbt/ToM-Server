@@ -138,6 +138,7 @@ describe('UserDBLDAP', () => {
   let logger: TwakeLogger
   let userDB: UserDBLDAP
   let UserDBLDAPImpl: typeof UserDBLDAP
+  let escapeFilterValue: (value: string, allowWildcard?: boolean) => string
 
   // Helper function to create UserDB instance with default/custom config
   const createUserDB = (overrides?: {
@@ -168,6 +169,7 @@ describe('UserDBLDAP', () => {
     }))
     const module = await import('./ldap')
     UserDBLDAPImpl = module.default
+    escapeFilterValue = module.escapeLDAPFilterValue
   })
 
   afterAll(() => {
@@ -211,6 +213,21 @@ describe('UserDBLDAP', () => {
     beforeEach(async () => {
       userDB = createUserDB()
       await userDB.ready
+    })
+
+    it('escapes LDAP assertion injection while keeping intentional wildcard patterns', () => {
+      const hostile = 'abc*(uid=*)\\\u0000'
+      expect(escapeFilterValue(hostile)).toBe('abc\\2a\\28uid=\\2a\\29\\5c\\00')
+      expect(escapeFilterValue('abc*', true)).toBe('abc*')
+    })
+
+    it('rejects an injected LDAP attribute instead of broadening a directory lookup', () => {
+      expect(() => userDB.get('', [], { 'uid)(|(objectClass': 'anything' })).toThrow(
+        'Invalid LDAP search attribute'
+      )
+      expect(() => userDB.match('', [], ['uid)(objectClass=*'], 'someone')).toThrow(
+        'Invalid LDAP search attribute'
+      )
     })
 
     it('does not disclose a private LDAP search predicate or attribute into logs', async () => {

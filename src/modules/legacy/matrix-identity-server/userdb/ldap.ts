@@ -6,6 +6,25 @@ import { type Config, type DbGetResult } from '../types'
 import { type UserDBBackend } from './index'
 import _ from 'lodash'
 
+/** Escape RFC 4515 assertion metacharacters in untrusted directory values.
+ * Only `get` intentionally supports LDAP wildcard patterns; `match` treats
+ * the user's search text as a literal substring bounded by our own `*`. */
+export function escapeLDAPFilterValue(value: string, allowWildcard = false): string {
+  return value
+    .replace(/\\/g, '\\5c')
+    .replace(/\*/g, allowWildcard ? '*' : '\\2a')
+    .replace(/\(/g, '\\28')
+    .replace(/\)/g, '\\29')
+    .replace(/\0/g, '\\00')
+}
+
+function checkedAttribute(value: string): string {
+  if (!/^[a-zA-Z][a-zA-Z0-9-]*$/.test(value)) {
+    throw new Error('Invalid LDAP search attribute')
+  }
+  return value
+}
+
 class UserDBLDAP implements UserDBBackend {
   base: string
   filter: string
@@ -275,20 +294,21 @@ class UserDBLDAP implements UserDBBackend {
             filterFields[key].toString() !== [].toString()
         )
         .forEach((key) => {
+          checkedAttribute(key)
           const value = filterFields[key]
           if (Array.isArray(value)) {
             this.logger.silly(
               `[UserDBLDAP][get] Building OR filter for field "${key}" with ${value.length} values`
             )
             const arrayValueFilters = value
-              .map((val) => `(${key}=${val})`)
+              .map((val) => `(${key}=${escapeLDAPFilterValue(String(val), true)})`)
               .join('')
             individualFilters.push(`(|${arrayValueFilters})`)
           } else {
             this.logger.silly(
               `[UserDBLDAP][get] Building filter for field "${key}" (value withheld)`
             )
-            if (value !== undefined) individualFilters.push(`(${key}=${value.toString()})`)
+            if (value !== undefined) individualFilters.push(`(${key}=${escapeLDAPFilterValue(value.toString(), true)})`)
           }
         })
 
@@ -345,8 +365,9 @@ class UserDBLDAP implements UserDBBackend {
       return Promise.resolve([])
     }
 
+    const escapedValue = escapeLDAPFilterValue(String(value))
     let specificFilter = searchFields.reduce((prev, current) => {
-      return `${prev}(${current}=${value ? `*${value}*` : '*'})`
+      return `${prev}(${checkedAttribute(current)}=${value ? `*${escapedValue}*` : '*'})`
     }, '')
 
     if (searchFields.length > 1) {
