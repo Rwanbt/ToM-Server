@@ -152,7 +152,8 @@ export class AddressbookService implements IAddressbookService {
         owner
       })) as unknown as AddressBook[]
 
-      if (!userAddressbook || !userAddressbook.length) {
+      const existingAddressbook = userAddressbook?.[0]
+      if (!existingAddressbook) {
         this.logger.warn(
           '[AddressbookService.delete] Addressbook not found for owner, nothing to delete.',
           { owner }
@@ -160,7 +161,7 @@ export class AddressbookService implements IAddressbookService {
         throw new Error('Addressbook not found') // Re-throwing for consistent error flow
       }
 
-      const id = userAddressbook[0].id as string
+      const id = existingAddressbook.id as string
       this.logger.info(
         '[AddressbookService.delete] Found addressbook, proceeding with deletion.',
         { addressbookId: id, owner }
@@ -213,14 +214,15 @@ export class AddressbookService implements IAddressbookService {
         id: contactId
       })) as unknown as Contact[]
 
-      if (!queryResult || !queryResult.length) {
+      const foundContact = queryResult?.[0]
+      if (!foundContact) {
         this.logger.warn('[AddressbookService.getContact] Contact not found.', {
           contactId
         })
         throw new Error('Contact not found')
       }
 
-      const contact = this._normalizeContact(queryResult[0])
+      const contact = this._normalizeContact(foundContact)
       this.logger.info('[AddressbookService.getContact] Contact found.', {
         contactId,
         contactMxid: contact.mxid
@@ -386,7 +388,8 @@ export class AddressbookService implements IAddressbookService {
         id
       )) as unknown as Contact[]
 
-      if (!updatedContact || !updatedContact.length) {
+      const savedContact = updatedContact?.[0]
+      if (!savedContact) {
         this.logger.warn(
           '[AddressbookService.updateContact] No contact found or updated.',
           { contactId: id }
@@ -394,7 +397,7 @@ export class AddressbookService implements IAddressbookService {
         throw new Error('Contact not found or failed to update')
       }
 
-      const resultContact = this._normalizeContact(updatedContact[0])
+      const resultContact = this._normalizeContact(savedContact)
       this.logger.info(
         '[AddressbookService.updateContact] Contact updated successfully.',
         {
@@ -503,7 +506,8 @@ export class AddressbookService implements IAddressbookService {
         addressbook_id: addressbookId
       })) as unknown as Contact[]
 
-      if (!created || !created.length) {
+      const insertedContact = created?.[0]
+      if (!insertedContact) {
         this.logger.error(
           '[AddressbookService._insertContact] Database insert returned no created contact.',
           { contactId: id, addressbookId, mxid }
@@ -511,7 +515,7 @@ export class AddressbookService implements IAddressbookService {
         throw new Error('Failed to insert contact: no data returned')
       }
 
-      const resultContact = this._normalizeContact(created[0])
+      const resultContact = this._normalizeContact(insertedContact)
       this.logger.info(
         '[AddressbookService._insertContact] Contact inserted successfully.',
         { contactId: resultContact.id, contactMxid: resultContact.mxid }
@@ -923,7 +927,8 @@ export class AddressbookService implements IAddressbookService {
         owner
       })) as unknown as AddressBook[]
 
-      if (!userAddressbook || !userAddressbook.length) {
+      const existingAddressbook = userAddressbook?.[0]
+      if (!existingAddressbook) {
         this.logger.info(
           '[AddressbookService._getUserAddressBook] Addressbook not found for owner.',
           { owner }
@@ -932,7 +937,7 @@ export class AddressbookService implements IAddressbookService {
         throw new Error('Addressbook not found')
       }
 
-      const result = userAddressbook[0]
+      const result = existingAddressbook
       this.logger.info(
         '[AddressbookService._getUserAddressBook] Addressbook found.',
         {
@@ -995,7 +1000,8 @@ export class AddressbookService implements IAddressbookService {
       id
     })) as unknown as AddressBook[]
 
-    if (!addressbook || !addressbook.length) {
+    const insertedAddressbook = addressbook?.[0]
+    if (!insertedAddressbook) {
       this.logger.error(
         '[AddressbookService._createUserAddressBook] Database insert returned no created addressbook.',
         { owner, addressbookId: id }
@@ -1003,7 +1009,7 @@ export class AddressbookService implements IAddressbookService {
       throw new Error('Failed to create addressbook: no data returned')
     }
 
-    const result = addressbook[0]
+    const result = insertedAddressbook
     this.logger.info(
       '[AddressbookService._createUserAddressBook] Addressbook created successfully.',
       { addressbookId: result.id, owner }
