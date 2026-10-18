@@ -76,4 +76,20 @@ can no longer be marked `continue-on-error`. This only resolves the
 runner divergence if the SHA-exact Linux rerun confirms matching results;
 TypeScript 7 errors remain an independent **NO-GO**.
 
+## TypeScript baseline comparison, without weakening the gate
+
+An independently installed detached worktree at original fork SHA
+`6651bd21a75570c6f659d832afec73cbf4a77fef`, using locked
+TypeScript 7.0.2, reproduced **970 TypeScript diagnostics**. The
+candidate had **968**; comparing path + diagnostic code + message
+independently of line position found **no newly introduced diagnostic
+identities**. Unlike a simple count reduction, this prevents new error
+classes from hiding behind repaired legacy errors. The extra
+`typecheck-regression` CI job repeats this comparison on Linux with
+two independent pinned checkouts and self-tested comparison logic.
+
+**Important:** this is a regression guard, not a production waiver. The
+unmodified full `typecheck` job still fails on inherited errors; no
+release can be approved until that strict job itself passes.
+
 This patch does **not** certify all token ingress, distributed rate limiting, external SSO, UI/UX, or production deployments. Never use real secrets in these tests, and do not merge without mandatory independent CI verification on the exact PR HEAD.

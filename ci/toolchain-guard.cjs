@@ -30,3 +30,10 @@ test('Biome violations cannot be converted to passing GitHub status', () => {
   assert.match(lint, /biome ci \. /)
   assert.doesNotMatch(lint, /continue-on-error:\s*true/)
 })
+
+test('baseline regression guard cannot replace the required strict typecheck', () => {
+  assert.match(security, /typecheck-regression:/)
+  assert.match(security, /ref: 6651bd21a75570c6f659d832afec73cbf4a77fef/)
+  assert.match(security, /node ci\/compare-typecheck\.cjs/)
+  assert.match(security, /name: TypeScript — required release gate\s+run: bun run type-check/)
+})
