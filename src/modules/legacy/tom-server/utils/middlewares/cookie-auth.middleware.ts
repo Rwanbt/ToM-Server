@@ -33,7 +33,7 @@ export default class CookieAuthenticator {
     req: Request,
     _res: Response,
     next: NextFunction
-  ) => {
+  ): Promise<void> => {
     try {
       if (req.headers.authorization) {
         this.logger.error(

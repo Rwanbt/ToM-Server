@@ -250,7 +250,7 @@ describe('Vault API server', () => {
     })
   })
 
-  it('should reject if more than 100 requests are done in less than 10 seconds on get words', { timeout: 20000 }, async () => {
+  it('should reject if more than 100 requests are done in less than 10 seconds on get words', async () => {
     let response
     let token
     // eslint-disable-next-line @typescript-eslint/no-for-in-array, @typescript-eslint/no-unused-vars
@@ -260,9 +260,9 @@ describe('Vault API server', () => {
     }
     expect((response as Response).statusCode).toEqual(429)
     await new Promise((resolve) => setTimeout(resolve, 11000))
-  })
+  }, 20000)
 
-  it('should reject if more than 100 requests are done in less than 10 seconds on post words', { timeout: 20000 }, async () => {
+  it('should reject if more than 100 requests are done in less than 10 seconds on post words', async () => {
     let response
     let token
     // eslint-disable-next-line @typescript-eslint/no-for-in-array, @typescript-eslint/no-unused-vars
@@ -275,7 +275,7 @@ describe('Vault API server', () => {
     }
     expect((response as Response).statusCode).toEqual(429)
     await new Promise((resolve) => setTimeout(resolve, 11000))
-  })
+  }, 20000)
 
   const removeUserInAccessTokenTable = async (
     accessToken: string

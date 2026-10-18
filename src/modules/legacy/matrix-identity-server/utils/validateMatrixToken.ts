@@ -24,7 +24,11 @@ const validateMatrixToken = (logger: TwakeLogger) => {
       matrixResolve
         .resolve(matrixServer)
         .then((baseUrl: string | string[]) => {
-          if (typeof baseUrl === 'object') baseUrl = baseUrl[0]
+          if (Array.isArray(baseUrl)) baseUrl = baseUrl[0] ?? ''
+          if (!baseUrl) {
+            reject(new Error('Matrix resolver returned no endpoint'))
+            return
+          }
           fetch(
             encodeURI(
               `${baseUrl}_matrix/federation/v1/openid/userinfo?access_token=${accessToken}`

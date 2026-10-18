@@ -115,7 +115,7 @@ describe('SMS API Router', () => {
     middlewareSpy.mockClear()
   })
 
-  it('should reject if more than 100 requests are done in less than 10 seconds', { timeout: 30000 }, async () => {
+  it('should reject if more than 100 requests are done in less than 10 seconds', async () => {
     let response
     let token
     // eslint-disable-next-line @typescript-eslint/no-for-in-array, @typescript-eslint/no-unused-vars
@@ -125,7 +125,7 @@ describe('SMS API Router', () => {
     }
     expect((response as Response).statusCode).toEqual(429)
     await new Promise((resolve) => setTimeout(resolve, 11000))
-  })
+  }, 30000)
 
   it('should not call the middleware if the Bearer token is not set', async () => {
     const response = await supertest(app).post(PATH)

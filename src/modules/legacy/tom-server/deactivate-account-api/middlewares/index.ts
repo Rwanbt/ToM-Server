@@ -20,7 +20,7 @@ export default class DeactivateUserMiddleware
    * @param {Response} res - the response
    * @param {NextFunction} next - the next function
    */
-  checkAccessToken = (req: Request, res: Response, next: NextFunction) => {
+  checkAccessToken = (req: Request, res: Response, next: NextFunction): void => {
     const accessToken = req.headers?.['x-access-token']
 
     if (!accessToken || accessToken !== this.config.admin_access_token) {
@@ -39,7 +39,7 @@ export default class DeactivateUserMiddleware
    * @param {Response} res - the response
    * @param {NextFunction} next - the next function
    */
-  checkUserExists = async (req: Request, res: Response, next: NextFunction) => {
+  checkUserExists = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const userId = req.params?.id
 
     if (!userId) {
@@ -70,7 +70,7 @@ export default class DeactivateUserMiddleware
 
     const user = fetchUserQueryResult[0]
 
-    if (user.deactivated === 1) {
+    if (user?.deactivated === 1) {
       this.logger.error('User is already deactivated')
       res.status(400).json({ message: 'User is already deactivated' })
       return

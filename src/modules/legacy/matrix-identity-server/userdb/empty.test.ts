@@ -17,6 +17,7 @@ describe('Empty user DB', () => {
     userDB = new UserDBEmpty(
       {
         ...defaultConfig,
+        matrix_database_engine: 'sqlite',
         database_engine: 'sqlite',
         userdb_engine: ''
       },

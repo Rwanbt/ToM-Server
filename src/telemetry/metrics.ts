@@ -15,7 +15,9 @@ import { type Counter, type Meter, metrics } from "@opentelemetry/api";
 
 const meter: Meter = metrics.getMeter("tom");
 
-export const appMetrics: { lookupHits: Counter } = {
+export const appMetrics: {
+  lookupHits: Counter;
+} = {
   /**
    * Example of a custom metric.
    * Number of 3PID lookups that returned at least one mapping.

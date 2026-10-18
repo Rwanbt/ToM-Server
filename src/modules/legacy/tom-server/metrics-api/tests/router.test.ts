@@ -117,7 +117,7 @@ describe('the Metrics API router', () => {
     middlewareSpy.mockClear()
   })
 
-  it('should reject if rate limit is exceeded', { timeout: 30000 }, async () => {
+  it('should reject if rate limit is exceeded', async () => {
     let response
 
     for (let i = 0; i < 11; i++) {
@@ -126,9 +126,9 @@ describe('the Metrics API router', () => {
         .set('Authorization', 'Bearer test')
     }
 
-    expect((response as unknown as Response).status).toEqual(429)
+    expect(response?.status).toEqual(429)
     await new Promise((resolve) => setTimeout(resolve, 6000))
-  })
+  }, 30000)
 
   it('should not call the validation middleware if the Bearer token is not set', async () => {
     const response = await supertest(app).get(`${PATH}/activity`)

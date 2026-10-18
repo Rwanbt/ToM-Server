@@ -65,9 +65,9 @@ const diff = (
                   rows.forEach((row) => {
                     const matrixAddress = row.address as string
                     const uid = matrixAddress.replace(/^@(.*?):.*$/, '$1')
-                    const user: object = users[uid]
+                    const user = users[uid]
                     // eslint-disable-next-line eqeqeq
-                    if (row.active != 0) {
+                    if (row.active != 0 && user) {
                       ;(user as Record<string, string>).address = matrixAddress
                       newUsers.push(user)
                     } else {

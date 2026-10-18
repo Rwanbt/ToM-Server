@@ -18,24 +18,23 @@ export default class AdminSettingsMiddleware
    * @param {Response} res - the response
    * @param {NextFunction} next - the next function
    */
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
   checkAdminSettingsToken = (
     req: Request,
     res: Response,
     next: NextFunction
-  ) => {
+  ): void => {
     const token = this.config.admin_access_token
     const authHeader = req.headers.authorization
 
     if (authHeader == null || !authHeader.startsWith('Bearer ')) {
-      return res
-        .status(401)
-        .json({ error: 'Missing or invalid Authorization header' })
+      res.status(401).json({ error: 'Missing or invalid Authorization header' })
+      return
     }
 
     const receivedToken = authHeader.slice(7) // remove "Bearer "
     if (receivedToken !== token) {
-      return res.status(403).json({ error: 'Forbidden: invalid token' })
+      res.status(403).json({ error: 'Forbidden: invalid token' })
+      return
     }
 
     next()

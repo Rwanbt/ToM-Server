@@ -22,6 +22,9 @@ const loggerMock = {
 
 const AUTHORIZATION = 'Bearer test'
 
+const asFetchMock = <T extends (...args: any[]) => any>(stub: T): T & { preconnect: () => void } =>
+  Object.assign(stub, { preconnect: () => {} })
+
 beforeEach(() => {
   mock.clearAllMocks()
 })
@@ -110,7 +113,7 @@ describe('the Invitation API service', () => {
           id: 'test',
           sender: 'test',
           recipient: 'test',
-          medium: 'test',
+          medium: 'email',
           expiration: '123456789',
           accessed: 0
         }
@@ -123,7 +126,7 @@ describe('the Invitation API service', () => {
           id: 'test',
           sender: 'test',
           recipient: 'test',
-          medium: 'test',
+          medium: 'email',
           expiration: 123456789,
           accessed: false
         }
@@ -190,10 +193,10 @@ describe('the Invitation API service', () => {
     })
 
     it('should throw an error if the database operation fails', async () => {
-      global.fetch = mock().mockResolvedValue({
+      global.fetch = asFetchMock(mock().mockResolvedValue({
         status: 200,
         json: mock().mockResolvedValue({ room_id: 'test' })
-      })
+      }))
 
       dbMock.insert.mockRejectedValue(new Error('test'))
 
@@ -209,7 +212,7 @@ describe('the Invitation API service', () => {
 
   describe('the accept method', () => {
     it('should update the invitation status and matrix_id', async () => {
-      global.fetch = mock().mockImplementation((url) => {
+      global.fetch = asFetchMock(mock().mockImplementation((url) => {
         if (url.includes('m.direct')) {
           return Promise.resolve({
             status: 200
@@ -220,7 +223,7 @@ describe('the Invitation API service', () => {
           status: 200,
           json: mock().mockResolvedValue({ room_id: 'test' })
         })
-      })
+      }))
 
       dbMock.get.mockResolvedValue([
         {
@@ -250,10 +253,10 @@ describe('the Invitation API service', () => {
     })
 
     it('should create a new room', async () => {
-      global.fetch = mock().mockResolvedValue({
+      global.fetch = asFetchMock(mock().mockResolvedValue({
         status: 200,
         json: mock().mockResolvedValue({ room_id: 'test' })
-      })
+      }))
 
       dbMock.get.mockResolvedValue([
         {
@@ -320,7 +323,7 @@ describe('the Invitation API service', () => {
     })
 
     it('should mark the new room as direct message', async () => {
-      global.fetch = mock().mockImplementation((url) => {
+      global.fetch = asFetchMock(mock().mockImplementation((url) => {
         if (url.includes('m.direct')) {
           return Promise.resolve({
             status: 200
@@ -331,7 +334,7 @@ describe('the Invitation API service', () => {
           status: 200,
           json: mock().mockResolvedValue({ room_id: 'test' })
         })
-      })
+      }))
 
       dbMock.get.mockResolvedValue([
         {
@@ -367,7 +370,7 @@ describe('the Invitation API service', () => {
     })
 
     it('should support accepting an invitation to unknown 3pid address', async () => {
-      global.fetch = mock().mockImplementation((url) => {
+      global.fetch = asFetchMock(mock().mockImplementation((url) => {
         if (url.includes('m.direct')) {
           return Promise.resolve({
             status: 200
@@ -378,7 +381,7 @@ describe('the Invitation API service', () => {
           status: 200,
           json: mock().mockResolvedValue({ room_id: 'test' })
         })
-      })
+      }))
 
       dbMock.get.mockResolvedValue([
         {
@@ -478,10 +481,10 @@ describe('the Invitation API service', () => {
     })
 
     it('should generate an invitation link without 3pid or medium', async () => {
-      global.fetch = mock().mockResolvedValue({
+      global.fetch = asFetchMock(mock().mockResolvedValue({
         status: 200,
         json: mock().mockResolvedValue({ room_id: 'test' })
-      })
+      }))
 
       dbMock.insert.mockResolvedValue({ id: 'test' })
 

@@ -23,7 +23,7 @@ const Authenticate = (
     if (req.headers?.authorization != null) {
       const re = req.headers.authorization.match(tokenRe)
       if (re != null) {
-        token = re[1]
+        token = re[1] ?? null
       }
       // @ts-expect-error req.query exists
     } else if (req.query && Object.keys(req.query).length > 0) {
@@ -33,10 +33,16 @@ const Authenticate = (
     if (token != null) {
       db.get('matrixTokens', ['data'], { id: token })
         .then((rows) => {
-          if (rows.length === 0) {
+          const stored = rows?.[0]?.data
+          if (typeof stored !== 'string') {
             throw Error()
           }
-          callback(JSON.parse(rows[0].data as string), token)
+          const data: unknown = JSON.parse(stored)
+          if (!data || typeof data !== 'object' || !('sub' in data) ||
+              typeof data.sub !== 'string' || !data.sub) {
+            throw new Error('Token subject is invalid')
+          }
+          callback(data as tokenContent, token)
         })
         .catch((e) => {
           // Try to get token from matrix

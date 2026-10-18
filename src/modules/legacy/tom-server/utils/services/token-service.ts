@@ -184,7 +184,7 @@ export default class TokenService implements ITokenService {
         throw new Error('No OIDC provider found in the response')
       }
 
-      return oidcProvider.identity_providers[0].id
+      return oidcProvider.identity_providers[0]?.id ?? null
     } catch (error) {
       this.logger.error('Failed to fetch OIDC login provider', { error })
 
@@ -353,7 +353,7 @@ export default class TokenService implements ITokenService {
   private extractCookies = (response: Response): string => {
     return response.headers
       .getSetCookie()
-      .map((cookie) => cookie.split(';')[0].trim())
+      .map((cookie) => cookie.split(';')[0]?.trim() ?? '')
       .filter((cookie) => cookie.length > 0)
       .join('; ')
   }

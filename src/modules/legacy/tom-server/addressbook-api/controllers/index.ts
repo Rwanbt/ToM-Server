@@ -188,6 +188,11 @@ export default class AddressbookApiController
       const { id } = req.params
       const viewer = req.userId
 
+      if (typeof id !== 'string' || !id) {
+        res.status(400).json({ message: 'Contact id is required' })
+        return
+      }
+
       this.logger.debug(
         `[AddressbookApiController.fetchContact] Fetching contact id=${id} viewer=${viewer}`
       )
@@ -203,6 +208,11 @@ export default class AddressbookApiController
       }
 
       const [enrichedContact] = await this._enrichContacts([contact], viewer)
+
+      if (!enrichedContact) {
+        res.status(404).json({ message: 'Contact not found' })
+        return
+      }
 
       this.logger.info(
         `[AddressbookApiController.fetchContact] Returning contact id=${id} mxid=${enrichedContact.mxid}`
@@ -262,6 +272,11 @@ export default class AddressbookApiController
       const { id } = req.params
       const { body } = req
 
+      if (typeof id !== 'string' || !id) {
+        res.status(400).json({ message: 'Contact id is required' })
+        return
+      }
+
       const contact = await this.service.updateContact(id, body)
 
       if (!contact) {
@@ -290,6 +305,11 @@ export default class AddressbookApiController
   ): Promise<void> => {
     try {
       const { id } = req.params
+
+      if (typeof id !== 'string' || !id) {
+        res.status(400).json({ message: 'Contact id is required' })
+        return
+      }
 
       await this.service.deleteContact(id)
       res.status(200).json({ message: 'Contact deleted' })

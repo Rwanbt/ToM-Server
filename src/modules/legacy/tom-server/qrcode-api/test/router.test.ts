@@ -85,7 +85,7 @@ describe('the QRCode API router', () => {
     })
   })
 
-  it('should reject if rate limit is exceeded', { timeout: 30000 }, async () => {
+  it('should reject if rate limit is exceeded', async () => {
     let response
 
     for (let i = 0; i < 11; i++) {
@@ -96,7 +96,7 @@ describe('the QRCode API router', () => {
 
     expect((response as unknown as Response).status).toEqual(429)
     await new Promise((resolve) => setTimeout(resolve, 6000))
-  })
+  }, 30000)
 
   it('should call the controller if the user is authenticated via Bearer', async () => {
     await supertest(app).get(PATH).set('Authorization', 'Bearer test')

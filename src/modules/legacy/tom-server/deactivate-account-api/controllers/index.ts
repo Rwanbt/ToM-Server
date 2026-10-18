@@ -37,7 +37,7 @@ export default class DeactivateUserController
     try {
       const userId = req.params.id
 
-      if (!userId) {
+      if (typeof userId !== 'string' || !userId) {
         res.status(400).json({ message: 'Missing user ID' })
         return
       }

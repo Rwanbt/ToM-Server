@@ -48,6 +48,7 @@ describe('UserDB', () => {
     userDB = new UserDB(
       {
         ...defaultConfig,
+        matrix_database_engine: 'sqlite',
         userdb_engine: 'sqlite',
         userdb_host: dbName,
         database_host: dbName,
@@ -60,7 +61,7 @@ describe('UserDB', () => {
         userDB
           .get('users', ['uid'], { uid: 'dwho' })
           .then((list) => {
-            expect(list[0].uid).toBe('dwho')
+            expect(list[0]?.uid).toBe('dwho')
             done()
           })
           .catch((e) => {
@@ -74,6 +75,7 @@ describe('UserDB', () => {
     userDB = new UserDB(
       {
         ...defaultConfig,
+        matrix_database_engine: 'sqlite',
         userdb_engine: 'sqlite',
         userdb_host: dbName,
         database_host: dbName,
@@ -86,7 +88,7 @@ describe('UserDB', () => {
         userDB
           .match('users', ['uid'], ['uid'], 'wh')
           .then((list) => {
-            expect(list[0].uid).toBe('dwho')
+            expect(list[0]?.uid).toBe('dwho')
             done()
           })
           .catch((e) => {
@@ -99,6 +101,7 @@ describe('UserDB', () => {
   it('should work with cache', (done) => {
     const conf: Config = {
       ...defaultConfig,
+      matrix_database_engine: 'sqlite',
       cache_engine: 'memory',
       userdb_engine: 'sqlite',
       userdb_host: dbName,

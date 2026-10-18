@@ -81,7 +81,7 @@ describe('the user info API Router', () => {
     })
   })
 
-  it('should reject if more than 100 requests are done in less than 10 seconds', { timeout: 30000 }, async () => {
+  it('should reject if more than 100 requests are done in less than 10 seconds', async () => {
     let response
     let token
     // eslint-disable-next-line @typescript-eslint/no-for-in-array, @typescript-eslint/no-unused-vars
@@ -93,7 +93,7 @@ describe('the user info API Router', () => {
     }
     expect((response as Response).statusCode).toEqual(429)
     await new Promise((resolve) => setTimeout(resolve, 11000))
-  })
+  }, 30000)
 
   it('should call the ldap check middleware', async () => {
     const nonLdapApp = express()

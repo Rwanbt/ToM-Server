@@ -286,9 +286,9 @@ class Pg<T extends string> extends SQL<T> implements IdDbBackend<T> {
         const vals:
           | (string[] & Array<string | number>)
           | (number[] & Array<string | number>) = []
-        Object.keys(values).forEach((k) => {
+        Object.entries(values).forEach(([k, value]) => {
           names.push(k)
-          vals.push(values[k])
+          vals.push(value)
         })
         vals.push(condition1.value, condition2.value)
         const query = `UPDATE ${table} SET ${names

@@ -19,11 +19,9 @@ const getUrlsFromPolicies = (policies: Policies): UrlsFromPolicies => {
     if (policy != null) {
       const newName = `${policyName} ${policy.version}`
       Object.keys(policy).forEach((lang: string) => {
-        if (typeof policy[lang] !== 'string') {
-          if (urlsFromPolicies[newName] == null) urlsFromPolicies[newName] = []
-          urlsFromPolicies[newName].push(
-            (policy[lang] as Record<string, 'name' | 'url'>).url
-          )
+        const entry = policy[lang]
+        if (entry && typeof entry !== 'string' && typeof entry.url === 'string') {
+          ;(urlsFromPolicies[newName] ??= []).push(entry.url)
         }
       })
     }
@@ -63,7 +61,7 @@ const PostTerms = <T extends string = never>(
     idServer.authenticate(
       req,
       res,
-      (data, id) => {
+      (authData) => {
         jsonContent(req, res, idServer.logger, (data) => {
           validateParameters(
             res,
@@ -71,56 +69,29 @@ const PostTerms = <T extends string = never>(
             data,
             idServer.logger,
             (data) => {
-              let urls = (data as { user_accepts: string[] | string })
-                .user_accepts
-              const done: string[] = []
-              /* istanbul ignore if */
-              if (typeof urls === 'string') urls = [urls]
-              Object.keys(urlsFromPolicies).forEach((policyName) => {
-                ;(urls as string[]).forEach((url) => {
-                  if (urlsFromPolicies[policyName].includes(url)) {
-                    done.push(policyName)
-                  }
-                })
-              })
+              const accepted = (data as { user_accepts?: unknown }).user_accepts
+              const urls = typeof accepted === 'string' ? [accepted] : accepted
+              if (!Array.isArray(urls) || !urls.every(url => typeof url === 'string')) {
+                send(res, 400, errMsg('invalidParam', 'invalid user_accepts'))
+                return
+              }
+              const done = Object.entries(urlsFromPolicies)
+                .filter(([, knownUrls]) => urls.some(url => knownUrls.includes(url)))
+                .map(([policyName]) => policyName)
               if (done.length > 0) {
-                let token: string = ''
-                // @ts-expect-error req.query exists
-                if (req.query && Object.keys(req.query).length > 0) {
-                  // @ts-expect-error req.query.access_token may be null
-                  token = req.query.access_token
-                } else if (req.headers.authorization != null) {
-                  token = req.headers.authorization.split(' ')[1]
+                if (typeof authData.sub !== 'string' || !authData.sub) {
+                  send(res, 401, errMsg('unAuthorized'))
+                  return
                 }
-                idServer.db
-                  .get('accessTokens', ['data'], { id: token })
-                  .then((rows) => {
-                    const userId = JSON.parse(rows[0].data as string).sub
-                    done.forEach((policyName) => {
-                      idServer.db
-                        .updateAnd(
-                          'userPolicies',
-                          { accepted: 1 },
-                          { field: 'user_id', value: userId },
-                          { field: 'policy_name', value: policyName }
-                        )
-                        .then(() => {})
-                        .catch((e) => {
-                          // istanbul ignore next
-                          idServer.logger.error(
-                            'Error updating user policies',
-                            e
-                          )
-                          // istanbul ignore next
-                          send(res, 500, errMsg('unknown'))
-                        })
-                    })
-                    send(res, 200, {})
-                  })
-                  .catch((e) => {
-                    // istanbul ignore next
-                    idServer.logger.error('Error getting user data', e)
-                    // istanbul ignore next
+                Promise.all(done.map(policyName =>
+                  idServer.db.updateAnd('userPolicies', { accepted: 1 },
+                    { field: 'user_id', value: authData.sub },
+                    { field: 'policy_name', value: policyName })
+                ))
+                  .then(() => send(res, 200, {}))
+                  .catch(() => {
+                    // DB exceptions can contain user/session identifiers or secrets.
+                    idServer.logger.error('Error updating user policies')
                     send(res, 500, errMsg('unknown'))
                   })
               } else {

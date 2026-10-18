@@ -168,15 +168,20 @@ const RequestToken = <T extends string = never>(
                 address: dst
               })
               .then((rows) => {
-                if (rows.length > 0) {
-                  if (sendAttempt === rows[0].send_attempt) {
-                    send(res, 200, { sid: rows[0].session_id })
+                const previous = rows?.[0]
+                if (previous) {
+                  if (typeof previous.session_id !== 'string' || !previous.session_id) {
+                    send(res, 500, errMsg('unknown'))
+                    return
+                  }
+                  if (sendAttempt === previous.send_attempt) {
+                    send(res, 200, { sid: previous.session_id })
                   } else {
                     idServer.db
                       .deleteEqualAnd(
                         'mappings',
                         { field: 'client_secret', value: clientSecret },
-                        { field: 'session_id', value: rows[0].session_id }
+                        { field: 'session_id', value: previous.session_id }
                       )
                       .then(() => {
                         fillTable(
@@ -191,11 +196,11 @@ const RequestToken = <T extends string = never>(
                           nextLink
                         )
                       })
-                      .catch((err) => {
+                      .catch(() => {
                         // istanbul ignore next
-                        idServer.logger.error('Deletion error', err)
+                        idServer.logger.error('Deletion error')
                         // istanbul ignore next
-                        send(res, 400, errMsg('unknown', err))
+                        send(res, 400, errMsg('unknown'))
                       })
                   }
                 } else {
@@ -212,11 +217,11 @@ const RequestToken = <T extends string = never>(
                   )
                 }
               })
-              .catch((err) => {
+              .catch(() => {
                 /* istanbul ignore next */
-                idServer.logger.error('Send_attempt error', err)
+                idServer.logger.error('Send_attempt error')
                 /* istanbul ignore next */
-                send(res, 400, errMsg('unknown', err))
+                send(res, 400, errMsg('unknown'))
               })
           }
         })

@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 
 const conf: Config = {
   ...defaultConfig,
+  matrix_database_engine: 'sqlite',
   database_engine: 'sqlite',
   database_host: ':memory:',
   userdb_engine: 'sqlite',
@@ -77,17 +78,17 @@ describe('updateHashes', () => {
       })
         .then((currentKeyRows) => {
           expect(currentKeyRows.length).toEqual(1)
-          expect(currentKeyRows[0].keyID).not.toEqual(undefined)
-          expect(currentKeyRows[0].public).not.toEqual(undefined)
-          expect(currentKeyRows[0].private).not.toEqual(undefined)
+          expect(currentKeyRows[0]?.keyID).not.toEqual(undefined)
+          expect(currentKeyRows[0]?.public).not.toEqual(undefined)
+          expect(currentKeyRows[0]?.private).not.toEqual(undefined)
           db.get('longTermKeypairs', ['keyID', 'public', 'private'], {
             name: 'previousKey'
           })
             .then((previousKeyRows) => {
               expect(previousKeyRows.length).toEqual(1)
-              expect(previousKeyRows[0].keyID).toEqual(currentKey.keyId)
-              expect(previousKeyRows[0].public).toEqual(currentKey.publicKey)
-              expect(previousKeyRows[0].private).toEqual(currentKey.privateKey)
+              expect(previousKeyRows[0]?.keyID).toEqual(currentKey.keyId)
+              expect(previousKeyRows[0]?.public).toEqual(currentKey.publicKey)
+              expect(previousKeyRows[0]?.private).toEqual(currentKey.privateKey)
               done()
             })
             .catch((e) => {

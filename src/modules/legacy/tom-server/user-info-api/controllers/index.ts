@@ -50,7 +50,7 @@ class UserInfoController implements IUserInfoController {
   ): Promise<void> => {
     try {
       const { userId } = req.params
-      if (req.userId == null) {
+      if (req.userId == null || typeof userId !== 'string' || !userId) {
         res.status(400).json({ error: errCodes.missingParams })
         return
       }
@@ -87,7 +87,7 @@ class UserInfoController implements IUserInfoController {
     try {
       const { userId } = req.params
       const updatedSettings = req.body as UserProfileSettingsT
-      if (userId !== req.userId) {
+      if (typeof userId !== 'string' || !userId || userId !== req.userId) {
         res.status(403).json({ error: errCodes.forbidden })
         return
       }
@@ -119,6 +119,10 @@ class UserInfoController implements IUserInfoController {
   ): Promise<void> => {
     try {
       const { userId } = req.params
+      if (typeof userId !== 'string' || !userId) {
+        res.status(400).json({ error: errCodes.missingParams })
+        return
+      }
       const userVisibilitySettings = await this.userInfoService.getVisibility(
         userId
       )

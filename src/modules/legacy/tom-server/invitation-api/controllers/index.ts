@@ -100,7 +100,7 @@ export default class InvitationApiController {
     try {
       const { id } = req.params
 
-      if (id.length === 0) {
+      if (typeof id !== 'string' || id.length === 0) {
         res.status(400).json({ message: 'Invitation id is required' })
         return
       }
@@ -206,7 +206,7 @@ export default class InvitationApiController {
     try {
       const { id } = req.params
 
-      if (id.length === 0) {
+      if (typeof id !== 'string' || id.length === 0) {
         res.status(400).json({ message: 'Invitation id is required' })
         return
       }
@@ -233,6 +233,11 @@ export default class InvitationApiController {
   ): Promise<void> => {
     try {
       const { id } = req.params
+
+      if (typeof id !== 'string' || !id) {
+        res.status(400).json({ message: 'Invitation id is required' })
+        return
+      }
 
       await this.invitationService.removeInvitation(id)
 

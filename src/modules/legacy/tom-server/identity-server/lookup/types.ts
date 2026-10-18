@@ -15,7 +15,7 @@ export interface Query {
   owner?: string
 }
 
-export const SearchFields = new Set<string>([
+export const SearchFields: Set<string> = new Set<string>([
   'mail',
   'mobile',
   'uid',

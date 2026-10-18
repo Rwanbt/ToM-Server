@@ -52,10 +52,12 @@ beforeAll((done) => {
       idServer.ready
         .then(() => {
           Object.keys(idServer.api.get).forEach((k) => {
-            app.get(k, idServer.api.get[k])
+            const handler = idServer.api.get[k]
+            if (handler) app.get(k, handler)
           })
           Object.keys(idServer.api.post).forEach((k) => {
-            app.post(k, idServer.api.post[k])
+            const handler = idServer.api.post[k]
+            if (handler) app.post(k, handler)
           })
           done()
         })
