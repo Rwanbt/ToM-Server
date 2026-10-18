@@ -27,7 +27,7 @@ const unsavedToken = accessToken.replace('accessToken', 'unsavedToken')
 const unsavedToken2 = accessToken.replace('accessToken', 'unsavedT2ken')
 
 const matrixServerResponseBody = {
-  user_id: 'test',
+  user_id: '@test:example.org',
   is_guest: 'test',
   device_id: 'test'
 }

@@ -42,7 +42,7 @@ const matrixUnauthorizedError = {
 }
 
 const matrixServerResponseBody = {
-  user_id: 'test',
+  user_id: '@test:example.org',
   is_guest: 'test',
   device_id: 'test'
 }
