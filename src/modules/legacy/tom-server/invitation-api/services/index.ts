@@ -368,11 +368,10 @@ export default class InvitationService implements IInvitationService {
         id
       })) as unknown as Invitation[]
 
-      if (!invitations || !invitations.length) {
+      const invitation = invitations?.[0]
+      if (!invitation) {
         throw Error('Invitation not found')
       }
-
-      const invitation = invitations[0]
 
       return {
         ...invitation,
@@ -592,7 +591,7 @@ export default class InvitationService implements IInvitationService {
           .filter(({ expiration }) => parseInt(expiration) > Date.now())
           .sort((a, b) => parseInt(b.expiration) - parseInt(a.expiration))
 
-        return validInvitations[0]
+        return validInvitations[0] ?? null
       }
 
       return null
