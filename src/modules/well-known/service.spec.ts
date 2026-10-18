@@ -1,5 +1,6 @@
-import { createLogger } from "winston";
 import { describe, expect, it } from "bun:test";
+
+import { createLogger } from "winston";
 
 import { DomainError } from "../../errors/domain-error";
 import { WellKnownClientService } from "./service";
