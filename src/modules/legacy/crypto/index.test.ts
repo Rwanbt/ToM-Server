@@ -38,6 +38,21 @@ test("randomString", () => {
   expect(res).toMatch(/^[a-zA-Z0-9]{64}$/);
 });
 
+test("secure tokens do not depend on Math.random and reject unsafe lengths", () => {
+  const originalRandom = Math.random;
+  Math.random = () => { throw new Error("Insecure Math.random must not be called"); };
+  try {
+    expect(randomString(32)).toMatch(/^[a-zA-Z0-9]{32}$/);
+    expect(randomString(64)).toMatch(/^[a-zA-Z0-9]{64}$/);
+  } finally {
+    Math.random = originalRandom;
+  }
+  for (const size of [-1, 0.5, Number.POSITIVE_INFINITY, 4097]) {
+    expect(() => randomString(size)).toThrow(RangeError);
+  }
+  expect(randomString(0)).toBe("");
+});
+
 describe("generateKeyPair", () => {
   it("should refuse an invalid algorithm", () => {
     expect(() => generateKeyPair("invalid_algorithm" as unknown as "ed25519" | "curve25519")).toThrow(

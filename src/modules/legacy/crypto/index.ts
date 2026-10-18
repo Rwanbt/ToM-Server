@@ -1,9 +1,10 @@
+import { randomInt } from "node:crypto";
 import _nacl, { type Nacl } from "js-nacl";
 import nacl from "tweetnacl";
 import naclUtil from "tweetnacl-util";
 
 // export const supportedHashes = ['sha256', 'sha512']
-export const supportedHashes = ["sha256"];
+export const supportedHashes = ["sha256"] as const;
 
 export class Hash {
   ready: Promise<void>;
@@ -39,11 +40,20 @@ export class Hash {
   }
 }
 
+// These helpers generate authentication, invitation and ephemeral signing
+// tokens. Math.random is predictable and must never be used for credentials.
+const TOKEN_ALPHABET = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
 export const randomChar = (): string => {
-  return Math.random().toString(36).slice(-1);
+  const result = TOKEN_ALPHABET[randomInt(TOKEN_ALPHABET.length)];
+  if (!result) throw new Error("Unable to generate a secure token character");
+  return result;
 };
 
 export const randomString = (n: number): string => {
+  if (!Number.isSafeInteger(n) || n < 0 || n > 4096) {
+    throw new RangeError("Invalid secure token length");
+  }
   let res = "";
   for (let i = 0; i < n; i++) {
     res += randomChar();

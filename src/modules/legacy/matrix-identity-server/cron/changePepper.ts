@@ -2,7 +2,7 @@
  * Change pepper and update hashes
  */
 
-import { randomString } from '../../crypto/index'
+import { randomBytes } from 'node:crypto'
 import { type TwakeLogger } from '../../logger/index'
 import type IdentityServerDb from '../db'
 import updateHash, { type UpdatableFields } from '../lookup/updateHash'
@@ -11,7 +11,7 @@ import { type Config, type DbGetResult } from '../types'
 import type UserDB from '../userdb'
 import { toMatrixId } from '../../utils/index'
 
-export const dbFieldsToHash = ['mobile', 'mail']
+export const dbFieldsToHash = ['mobile', 'mail'] as const
 
 // If Matrix DB is available, this function filter inactive users
 export const filter = async (
@@ -44,7 +44,9 @@ export const filter = async (
     }
     const names: string[] = []
     entries.forEach((row) => {
-      names.push((row.name as string).replace(/^@(.*?):(?:.*)$/, '$1'))
+      if (typeof row.name === 'string') {
+        names.push(row.name.replace(/^@(.*?):(?:.*)$/, '$1'))
+      }
     })
     if (
       (conf.federated_identity_services != null &&
@@ -59,7 +61,8 @@ export const filter = async (
         })
     } else {
       for (let i = 0; i < rows.length; i++) {
-        if (names.includes(rows[i].uid as string)) rows[i].active = 1
+        const row = rows[i]
+        if (row && names.includes(row.uid as string)) row.active = 1
       }
     }
   }
@@ -96,10 +99,11 @@ const updateHashes = <T extends string = never>(
           /* istanbul ignore next */
           throw Error('No previousPepper found')
         }
-        if (rows[0].data?.toString()?.length !== 32) {
+        const previousPepper = rows[0]?.data
+        if (typeof previousPepper !== 'string' || previousPepper.length !== 32) {
           throw Error('previousPepper value is not valid')
         }
-        db.deleteEqual('hashes', 'pepper', rows[0].data as string).catch(
+        db.deleteEqual('hashes', 'pepper', previousPepper).catch(
           (e) => {
             /* istanbul ignore next */
             logger.error('Unable to clean old hashes', e)
@@ -111,18 +115,24 @@ const updateHashes = <T extends string = never>(
       })
     db.get('keys', ['data'], { name: 'pepper' })
       .then((values: DbGetResult) => {
+        const currentPepper = values[0]?.data
+        if (typeof currentPepper !== 'string') {
+          throw new Error('Current hashing pepper record is missing')
+        }
         /**
          * Step 2:
          *  - generate new pepper
          *  - set previousPepper to current value
          *  - calculate new hashes and populate hashes database
          */
-        const newPepper = randomString(32)
+        // 24 CSPRNG bytes produce exactly 32 base64url characters (192 bits).
+        // Math.random() is not suitable for a secret used to derive identity hashes.
+        const newPepper = randomBytes(24).toString('base64url')
         Promise.all([
           // move current pepper to 'previousPepper'
           db.update(
             'keys',
-            { data: values[0].data as string },
+            { data: currentPepper },
             'name',
             'previousPepper'
           ),
@@ -156,7 +166,7 @@ const updateHashes = <T extends string = never>(
           .then(() => {
             db.update('keys', { data: newPepper }, 'name', 'pepper')
               .then(() => {
-                logger.debug('Identity server: new pepper published', newPepper)
+                logger.debug('Identity server: new pepper published')
                 resolve()
               })
               .catch(logAndReject('Unable to publish new pepper'))

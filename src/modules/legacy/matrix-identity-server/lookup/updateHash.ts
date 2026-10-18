@@ -3,7 +3,7 @@ import { type TwakeLogger } from '../../logger/index'
 import { createPool } from 'generic-pool'
 import type IdentityServerDb from '../db'
 
-export const fieldsToHash = ['phone', 'email']
+export const fieldsToHash = ['phone', 'email'] as const
 
 // TODO: move this in conf
 const jobs = 5
@@ -52,11 +52,15 @@ const updateHash = <T extends string = never>(
           active
         ): Promise<void> => {
           if (pepper == null || pepper.length === 0) {
-            pepper = (
+            const storedPepper = (
               (await db.get('keys', ['data'], {
                 name: 'pepper'
               })) as unknown as Array<{ data: string }>
-            )[0].data
+            )[0]?.data
+            if (typeof storedPepper !== 'string' || storedPepper.length === 0) {
+              throw new Error('No valid hashing pepper is configured')
+            }
+            pepper = storedPepper
           }
 
           // Format phone
@@ -84,8 +88,10 @@ const updateHash = <T extends string = never>(
         // Read data
         const params: _UpdateArgs[] = []
         Object.keys(data).forEach((matrixAddress) => {
+          const user = data[matrixAddress]
+          if (!user) return
           fieldsToHash.forEach((field) => {
-            const v = data[matrixAddress][field as keyof ValueField]
+            const v = user[field]
             if (v != null && v.toString().length > 0) {
               supportedHashes.forEach((method: string) => {
                 params.push([
@@ -93,7 +99,7 @@ const updateHash = <T extends string = never>(
                   method,
                   field as 'phone' | 'email',
                   v as string,
-                  data[matrixAddress].active
+                  user.active
                 ])
               })
             }
