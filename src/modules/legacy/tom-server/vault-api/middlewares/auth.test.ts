@@ -188,9 +188,8 @@ describe('Auth middleware', () => {
     const handler: expressAppHandler = isAuth(idServer.authenticate)
     handler(mockRequest as Request, mockResponse as Response, nextFunction)
     await new Promise((resolve) => setTimeout(resolve))
-    expect(spyOnLoggerWarn).toHaveBeenCalledWith('Access tried without token', {
-      authorization: 'falsy_token'
-    })
+    expect(spyOnLoggerWarn).toHaveBeenCalledWith('Access tried without token')
+    expect(JSON.stringify(spyOnLoggerWarn.mock.calls)).not.toContain('falsy_token')
     expect(mockResponse.write).toHaveBeenCalledWith(
       JSON.stringify(matrixUnauthorizedError)
     )
@@ -208,10 +207,7 @@ describe('Auth middleware', () => {
     const handler: expressAppHandler = isAuth(idServer.authenticate)
     handler(mockRequest as Request, mockResponse as Response, nextFunction)
     await new Promise((resolve) => setTimeout(resolve))
-    expect(spyOnLoggerWarn).toHaveBeenCalledWith(
-      'Access tried without token',
-      {}
-    )
+    expect(spyOnLoggerWarn).toHaveBeenCalledWith('Access tried without token')
     expect(mockResponse.write).toHaveBeenCalledWith(
       JSON.stringify(matrixUnauthorizedError)
     )
@@ -227,10 +223,7 @@ describe('Auth middleware', () => {
     const handler: expressAppHandler = isAuth(idServer.authenticate)
     handler(mockRequest as Request, mockResponse as Response, nextFunction)
     await new Promise((resolve) => setTimeout(resolve))
-    expect(spyOnLoggerWarn).toHaveBeenCalledWith(
-      'Access tried without token',
-      {}
-    )
+    expect(spyOnLoggerWarn).toHaveBeenCalledWith('Access tried without token')
     expect(mockResponse.write).toHaveBeenCalledWith(
       JSON.stringify(matrixUnauthorizedError)
     )
@@ -262,10 +255,8 @@ describe('Auth middleware', () => {
     handler(mockRequest as Request, mockResponse as Response, nextFunction)
     await new Promise((resolve) => setTimeout(resolve))
     expect(idServer.db.insert).not.toHaveBeenCalled()
-    expect(spyOnLoggerDebug).toHaveBeenCalledWith(
-      'Fetch error',
-      errorMatrixServer
-    )
+    expect(spyOnLoggerDebug).toHaveBeenCalledWith('Fetch error')
+    expect(JSON.stringify(spyOnLoggerDebug.mock.calls)).not.toContain(errorMatrixServer.message)
     expect(mockResponse.write).toHaveBeenCalledWith(
       JSON.stringify(matrixUnauthorizedError)
     )
@@ -295,10 +286,8 @@ describe('Auth middleware', () => {
     const handler: expressAppHandler = isAuth(idServer.authenticate)
     handler(mockRequest as Request, mockResponse as Response, nextFunction)
     await new Promise((resolve) => setTimeout(resolve))
-    expect(spyOnLoggerError).toHaveBeenCalledWith(
-      'Unable to insert a token',
-      errorDb
-    )
+    expect(spyOnLoggerError).toHaveBeenCalledWith('Unable to insert a token')
+    expect(JSON.stringify(spyOnLoggerError.mock.calls)).not.toContain(errorDb.message)
     expect(mockRequest.token?.value).toEqual(token.value)
     expect(mockRequest.token?.content.sub).toEqual(
       matrixServerResponseBody.user_id

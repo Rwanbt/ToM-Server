@@ -133,8 +133,7 @@ describe('SMS API Router', () => {
     expect(middlewareSpy).not.toHaveBeenCalled()
     expect(response.status).toBe(401)
     expect(mockLogger.warn).toHaveBeenCalledWith(
-      'Access tried without token',
-      expect.anything()
+      'Access tried without token'
     )
   })
 

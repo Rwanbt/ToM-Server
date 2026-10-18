@@ -33,4 +33,14 @@ jobs. Until GitHub registers and executes the workflow and the existing
 baselines are repaired, this PR is a strict **NO-GO**. A local unit PASS
 does not waive any of the release gates.
 
+## Legacy test compatibility after safe redaction
+
+The first Linux Actions run identified six pre-existing test expectations
+which assumed raw authorization headers or upstream exception objects
+would be emitted into production logs. The corrected assertions retain
+their original 401/fail-closed and DB behavior checks while requiring
+redacted logger calls. Two targeted suites pass locally on Bun 1.3.11:
+**14 tests, 37 assertions**. Linux full-suite and type-check reruns are
+mandatory; these local results alone do not establish global PASS.
+
 This patch does **not** certify all token ingress, distributed rate limiting, external SSO, UI/UX, or production deployments. Never use real secrets in these tests, and do not merge without mandatory independent CI verification on the exact PR HEAD.
