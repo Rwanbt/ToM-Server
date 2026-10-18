@@ -9,7 +9,7 @@ const checks = read('checks.yml')
 const pr = read('pr.yml')
 
 test('all required Bun jobs use one exact, independently proven version', () => {
-  assert.equal((security.match(/bun-version: '1\.4\.3'/g) ?? []).length, 3)
+  assert.equal((security.match(/bun-version: '1\.4\.3'/g) ?? []).length, 4)
   for (const workflow of [checks, pr]) {
     assert.match(workflow, /bun-version: '1\.4\.3'/)
     assert.doesNotMatch(workflow, /bun-version:\s*(?:latest|canary|1\.3\.11)/)
