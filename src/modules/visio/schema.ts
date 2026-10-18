@@ -7,7 +7,22 @@ const REQUIRED_WHEN_ENABLED = [
   "client_secret",
 ] as const;
 
-export const visioSettingsSchema = z
+type VisioSettingsShape = {
+  enabled: z.ZodDefault<z.ZodBoolean>;
+  base_url: z.ZodOptional<z.ZodURL>;
+  client_id: z.ZodOptional<z.ZodString>;
+  client_secret: z.ZodOptional<z.ZodString>;
+  room_access_level: z.ZodOptional<
+    z.ZodEnum<{
+      public: "public";
+      trusted: "trusted";
+      restricted: "restricted";
+    }>
+  >;
+  timeout_ms: z.ZodDefault<z.ZodNumber>;
+};
+
+export const visioSettingsSchema: z.ZodObject<VisioSettingsShape> = z
   .object({
     enabled: z.boolean().default(false),
     base_url: z.url().optional(),
@@ -40,15 +55,26 @@ export const visioSettingsSchema = z
     }
   });
 
-export const visioTokenResponseSchema = z.object({
+export const visioTokenResponseSchema: z.ZodObject<{
+  access_token: z.ZodString;
+}> = z.object({
   access_token: z.string().min(1),
 });
 
-export const visioRoomResponseSchema = z.object({
+export const visioRoomResponseSchema: z.ZodObject<{
+  url: z.ZodURL;
+}> = z.object({
   url: z.url(),
 });
 
-export const threepidsSchema = z.object({
+export const threepidsSchema: z.ZodObject<{
+  threepids: z.ZodArray<
+    z.ZodObject<{
+      medium: z.ZodString;
+      address: z.ZodString;
+    }>
+  >;
+}> = z.object({
   threepids: z.array(
     z.object({
       medium: z.string(),
