@@ -170,6 +170,7 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
   db: IdDbBackend<Collections | T>;
   cleanJob?: NodeJS.Timeout;
   cleanByExpires: Array<Collections | T>;
+  private maintenanceStopped = false;
 
   constructor(
     conf: Config,
@@ -178,7 +179,8 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
     additionnalIndexes?: Partial<Record<T, string[]>>,
     additionnalInitializeValues?: Partial<Record<Collections, Array<Record<string, string | number>>>>,
   ) {
-    this.cleanByExpires = cleanByExpires;
+    // A tenant-specific table list must not mutate the defaults for all DBs.
+    this.cleanByExpires = [...cleanByExpires];
     let Module;
     /* istanbul ignore next */
     switch (conf.database_engine) {
@@ -688,21 +690,29 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
   }
 
   dbMaintenance(delay: number): void {
+    const intervalMs = Number.isFinite(delay) && delay > 0 ? delay * 1000 : 3600 * 1000;
+    clearTimeout(this.cleanJob);
+    this.maintenanceStopped = false;
     const _vacuum = async (): Promise<void> => {
-      /* istanbul ignore next */
-      await Promise.all(
-        // eslint-disable-next-line @typescript-eslint/promise-function-async
-        this.cleanByExpires.map((table) => {
-          return this.deleteLowerThan(table, "expires", epoch());
-        }),
-      );
-      /* istanbul ignore next */
-      this.cleanJob = setTimeout(() => _vacuum, delay * 1000);
+      try {
+        await Promise.all(this.cleanByExpires.map((table) =>
+          this.deleteLowerThan(table, "expires", epoch())));
+      } catch {
+        // A transient database failure must not permanently disable expiry.
+        // Do not serialize the error: SQLite messages can contain SQL values.
+        this.logger.error("[IdentityServerDb] Expiration cleanup failed");
+      } finally {
+        if (!this.maintenanceStopped) {
+          this.cleanJob = setTimeout(() => { void _vacuum(); }, intervalMs);
+        }
+      }
     };
-    this.cleanJob = setTimeout(() => _vacuum, delay * 1000);
+    this.cleanJob = setTimeout(() => { void _vacuum(); }, intervalMs);
   }
 
   close(): void {
+    this.maintenanceStopped = true;
+    clearTimeout(this.cleanJob);
     this.db.close();
   }
 }
