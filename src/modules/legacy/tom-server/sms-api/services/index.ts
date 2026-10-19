@@ -46,11 +46,16 @@ export default class SmsService implements ISmsService {
         headers: this.headers
       })
 
-      if (response.status === 400) {
-        throw new Error('Failed to send sms', { cause: response.json() })
+      if (response.status < 200 || response.status >= 300) {
+        this.logger.warn('SMS API rejected the request', {
+          status: response.status
+        })
+        throw new Error('Failed to send SMS')
       }
-    } catch (error) {
-      this.logger.debug('SMS API', { error })
+    } catch {
+      // Provider bodies and transport errors may contain credentials or phone
+      // numbers. Keep the HTTP status above, but do not log untrusted details.
+      this.logger.debug('SMS API request failed')
       throw new Error('Failed to send SMS')
     }
   }

@@ -57,4 +57,17 @@ describe('the SMS service', () => {
       smsService.send({ to: ['123456'], text: 'test' })
     ).rejects.toThrow('Failed to send SMS')
   })
+
+  for (const status of [401, 403, 429, 500, 503]) {
+    it(
+      `should reject SMS provider HTTP ${status} instead of reporting success`,
+      async () => {
+        mockFetch.mockResolvedValue({ status } as Response)
+
+        await expect(
+          smsService.send({ to: ['123456'], text: 'test' })
+        ).rejects.toThrow('Failed to send SMS')
+      }
+    )
+  }
 })
