@@ -53,7 +53,7 @@ const bind = <T extends string = never>(
             send(res, 400, errMsg('invalidParam', 'invalid session ID'))
           } else {
             // The payload contains client_secret and sid: neither belongs in logs.
-            idServer.logger.debug(`bind request to associate 3pid with matrix_ID ${mxid}`)
+            idServer.logger.debug('Matrix 3pid binding requested')
 
             idServer.db
               .get('mappings', ['address', 'medium', 'submit_time', 'valid'], {
@@ -85,10 +85,10 @@ const bind = <T extends string = never>(
                   mapping.medium as string
                 )
                   .then(() => {
-                    idServer.logger.info(`Finished server onbind for ${mxid}`)
+                    idServer.logger.info('Finished server onbind')
                   })
-                  .catch((err) => {
-                    idServer.logger.error('Error calling server onbind', err)
+                  .catch(() => {
+                    idServer.logger.error('Error calling server onbind')
                   })
 
                 idServer.db
@@ -145,25 +145,22 @@ const bind = <T extends string = never>(
                           send(res, 500, errMsg('unknown'))
                         }
                       })
-                      .catch((err) => {
+                      .catch(() => {
                         // istanbul ignore next
-                        idServer.logger.error(
-                          'Error getting long term key',
-                          err
-                        )
-                        send(res, 500, errMsg('unknown', err))
+                        idServer.logger.error('Error getting long term key')
+                        send(res, 500, errMsg('unknown'))
                       })
                   })
-                  .catch((err) => {
+                  .catch(() => {
                     // istanbul ignore next
-                    idServer.logger.error('Error getting pepper', err)
-                    send(res, 500, errMsg('unknown', err))
+                    idServer.logger.error('Error getting pepper')
+                    send(res, 500, errMsg('unknown'))
                   })
               })
-              .catch((err) => {
+              .catch(() => {
                 // istanbul ignore next
-                idServer.logger.error('Error getting mapping', err)
-                send(res, 500, errMsg('unknown', err))
+                idServer.logger.error('Error getting mapping')
+                send(res, 500, errMsg('unknown'))
               })
           }
         })
@@ -192,8 +189,7 @@ const _onBind = async <T extends string = never>(
     const invitationTokens = await idServer.db.listInvitationTokens(address)
 
     if (!invitationTokens || !invitationTokens.length) {
-      idServer.logger.info(`No pending invitations found for ${address}`)
-      console.info(`No pending invitations found for ${address}`)
+      idServer.logger.info('No pending invitations found')
 
       return
     }
@@ -221,9 +217,8 @@ const _onBind = async <T extends string = never>(
         `Failed to call onbind hook, status code: ${response.status}`
       )
     }
-  } catch (error) {
-    console.error(`Failed to call onbind hook`, { error })
-    idServer.logger.error('Error calling onbind hook', error)
+  } catch {
+    idServer.logger.error('Error calling onbind hook')
   }
 }
 
