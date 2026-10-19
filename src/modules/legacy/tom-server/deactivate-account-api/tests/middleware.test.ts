@@ -51,6 +51,20 @@ beforeEach(() => {
 
 describe('the deactive user API middleware', () => {
   describe('the checkAccessToken middleware', () => {
+    it('fails closed with a missing admin secret configuration', () => {
+      const unconfigured = new Middleware(
+        { admin_access_token: '' } as unknown as Config,
+        dbMock as unknown as MatrixDBBackend,
+        loggerMock as unknown as TwakeLogger
+      )
+      unconfigured.checkAccessToken(
+        { ...mockRequest, headers: { 'x-access-token': 'something' } } as AuthRequest,
+        mockResponse as Response,
+        nextFunction
+      )
+      expect(mockResponse.status).toHaveBeenCalledWith(503)
+      expect(nextFunction).not.toHaveBeenCalled()
+    })
     it('should not call the next handler if the user did not provide the access token header', () => {
       middleware.checkAccessToken(
         mockRequest as AuthRequest,
@@ -93,6 +107,17 @@ describe('the deactive user API middleware', () => {
   })
 
   describe('the checkUserExists middleware', () => {
+    it('responds with a generic temporary failure when the database query rejects', async () => {
+      dbMock.get.mockRejectedValueOnce(new Error('private-matrix-db-token'))
+      await middleware.checkUserExists(
+        { ...mockRequest, params: { id: '@private:example.com' } } as AuthRequest,
+        mockResponse as Response,
+        nextFunction
+      )
+      expect(mockResponse.status).toHaveBeenCalledWith(503)
+      expect(mockResponse.json).toHaveBeenCalledWith({ message: 'Account lookup unavailable' })
+      expect(nextFunction).not.toHaveBeenCalled()
+    })
     it('should not call the next handler if the user id is not present in request params', async () => {
       await middleware.checkUserExists(
         mockRequest as AuthRequest,
