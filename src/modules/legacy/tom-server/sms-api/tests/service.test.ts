@@ -15,7 +15,7 @@ describe('the SMS service', () => {
   const smsConfig = {
     sms_api_key: 'test',
     sms_api_login: 'test',
-    sms_api_url: 'http://url/'
+    sms_api_url: 'https://url/'
   }
   const mockFetch = fetch as Mock<(...args: any[]) => any>
   const logger = getLogger()
@@ -31,7 +31,7 @@ describe('the SMS service', () => {
     )
     await smsService.send({ to: ['123456'], text: 'test' })
 
-    expect(mockFetch).toHaveBeenCalledWith('http://url/', {
+    expect(mockFetch).toHaveBeenCalledWith('https://url/', {
       method: 'POST',
       body: JSON.stringify({
         recipients: [{ phone_number: '123456' }],
@@ -45,7 +45,8 @@ describe('the SMS service', () => {
         'api-key': 'test',
         'api-login': 'test'
       },
-      signal: expect.any(AbortSignal)
+      signal: expect.any(AbortSignal),
+      redirect: 'error'
     })
   })
 
@@ -120,5 +121,38 @@ describe('the SMS service', () => {
     await boundedService.send({ to: ['123456'], text: 'test' })
     await new Promise((resolve) => setTimeout(resolve, 35))
     expect(observedSignal?.aborted).toBe(false)
+  })
+
+  it('rejects insecure remote SMS URLs and credential-bearing provider URLs before a request', () => {
+    for (const endpoint of [
+      'http://sms.example.com/v1',
+      'https://apikey:password@sms.example.com/v1',
+      'file:///etc/passwd',
+      'https://sms.example.com/#secret'
+    ]) {
+      expect(
+        () =>
+          new SmsService(
+            { ...smsConfig, sms_api_url: endpoint } as Config,
+            logger
+          )
+      ).toThrow('Invalid SMS API endpoint')
+    }
+  })
+
+  it('does not follow provider redirects carrying SMS credentials', async () => {
+    mockFetch.mockResolvedValue({ status: 200 } as Response)
+    const secureService = new SmsService(
+      { ...smsConfig, sms_api_url: 'https://sms.example.com/v1' } as Config,
+      logger
+    )
+    await secureService.send({ to: ['123456'], text: 'test' })
+    expect(mockFetch).toHaveBeenLastCalledWith(
+      'https://sms.example.com/v1',
+      expect.objectContaining({
+        redirect: 'error',
+        signal: expect.any(AbortSignal)
+      })
+    )
   })
 })

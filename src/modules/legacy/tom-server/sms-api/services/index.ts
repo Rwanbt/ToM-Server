@@ -2,6 +2,7 @@ import { type TwakeLogger } from '../../../logger/index'
 import { type Config } from '../../types'
 import { type ISmsService, type SMS, type SendSmsPayload } from '../types'
 import fetch from 'node-fetch'
+import { assertSecureSmsProviderUrl } from '../../../utils/sms-provider-security'
 
 export default class SmsService implements ISmsService {
   private readonly headers: Record<string, string>
@@ -21,6 +22,7 @@ export default class SmsService implements ISmsService {
     if (!Number.isSafeInteger(requestTimeoutMs) || requestTimeoutMs <= 0) {
       throw new Error('SMS API request timeout must be positive')
     }
+    assertSecureSmsProviderUrl(config.sms_api_url)
 
     this.headers = {
       'Content-Type': 'application/json',
@@ -52,6 +54,9 @@ export default class SmsService implements ISmsService {
           type: 'sms_low_cost'
         } satisfies SendSmsPayload),
         headers: this.headers,
+        // Custom api-key/api-login headers must never follow a 30x redirect
+        // onto an attacker-controlled origin or downgrade to plaintext.
+        redirect: 'error',
         signal: controller.signal
       })
 

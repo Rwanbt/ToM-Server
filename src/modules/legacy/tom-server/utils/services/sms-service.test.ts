@@ -38,10 +38,7 @@ describe('the SMS service', () => {
 
       await expect(smsService.send('test', 'test')).rejects.toThrow()
 
-      expect(loggerMock.error).toHaveBeenCalledWith(
-        'Failed to send SMS',
-        expect.anything()
-      )
+      expect(loggerMock.error).toHaveBeenCalledWith('Failed to send SMS')
     })
 
     it('should call the API endpoint with correct parameters', async () => {
@@ -58,6 +55,8 @@ describe('the SMS service', () => {
             'api-login': 'test_secret',
             'api-key': 'test_key'
           },
+          redirect: 'error',
+          signal: expect.any(AbortSignal),
           body: JSON.stringify({
             sender: 'Twake',
             recipients: [{ phone_number: '+330744556688' }],
@@ -65,6 +64,25 @@ describe('the SMS service', () => {
           })
         }
       )
+    })
+    it('refuses insecure remote SMS credentials transport', () => {
+      expect(
+        () =>
+          new SmsService(
+            { ...mockConfig, sms_api_url: 'http://sms.example.com' } as Config,
+            loggerMock as unknown as TwakeLogger
+          )
+      ).toThrow('Invalid SMS API endpoint')
+    })
+
+    it('never logs sensitive provider response bodies or transport failures', async () => {
+      loggerMock.error.mockClear()
+      const secret = 'provider-phone-token-secret-42'
+      global.fetch = mockFetch(401, { message: secret })
+      await expect(smsService.send('123456', secret)).rejects.toThrow(
+        'Failed to send SMS'
+      )
+      expect(JSON.stringify(loggerMock.error.mock.calls)).not.toContain(secret)
     })
   })
 })

@@ -1,6 +1,7 @@
 import type { TwakeLogger } from '../../../logger/index'
 import type { Config, ISMSService, SendSmsPayload } from '../../types'
 import { buildUrl } from '../../utils'
+import { assertSecureSmsProviderUrl } from '../../../utils/sms-provider-security'
 
 export default class SmsService implements ISMSService {
   private API_ENDPOINT: string
@@ -23,6 +24,7 @@ export default class SmsService implements ISMSService {
     if (!sms_api_key || !sms_api_login || !sms_api_url) {
       this.logger.error('SMS API configuration is missing')
     }
+    if (sms_api_url) assertSecureSmsProviderUrl(sms_api_url)
 
     this.API_ENDPOINT = buildUrl(sms_api_url as string, this.SEND_ENDPOINT)
     this.HEADERS = {
@@ -40,10 +42,14 @@ export default class SmsService implements ISMSService {
    * @param {string} text - the body of the sms to send
    */
   async send(to: string, text: string): Promise<void> {
+    const controller = new AbortController()
+    const deadline = setTimeout(() => controller.abort(), 15_000)
     try {
       const response = await fetch(this.API_ENDPOINT, {
         method: 'POST',
         headers: this.HEADERS,
+        redirect: 'error',
+        signal: controller.signal,
         body: JSON.stringify({
           sender: this.SENDER,
           recipients: [{ phone_number: to }],
@@ -51,21 +57,15 @@ export default class SmsService implements ISMSService {
         } satisfies SendSmsPayload)
       })
 
-      const responseBody = await response.json()
-
       if (response.status !== 200 && response.status !== 201) {
-        throw new Error(
-          `Failed to send SMS: ${response.status} ${
-            (responseBody as any).message
-          }`
-        )
+        // Provider response text can disclose phone numbers and credentials.
+        throw new Error('Failed to send SMS')
       }
-    } catch (error) {
-      console.error('Failed to send SMS', { error })
-
-      this.logger.error('Failed to send SMS', error)
-
-      throw error
+    } catch {
+      this.logger.error('Failed to send SMS')
+      throw new Error('Failed to send SMS')
+    } finally {
+      clearTimeout(deadline)
     }
   }
 }

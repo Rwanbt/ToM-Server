@@ -79,7 +79,7 @@ describe('SMS API Router', () => {
         rate_limiting_nb_requests: 100,
         sms_api_key: 'test',
         sms_api_login: 'test',
-        sms_api_url: 'http://url/',
+        sms_api_url: 'https://url/',
         template_dir: 'assets/templates',
         userdb_host: ':memory:',
         features: {

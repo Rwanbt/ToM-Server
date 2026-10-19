@@ -13,7 +13,7 @@ const app = express()
 const smsConfig = {
   sms_api_key: 'test',
   sms_api_login: 'test',
-  sms_api_url: 'http://url/'
+  sms_api_url: 'https://url/'
 }
 
 mock.module('node-fetch', () => ({
@@ -61,7 +61,7 @@ describe('the SMS API controller', () => {
       text: 'test'
     })
 
-    expect(mockFetch).toHaveBeenCalledWith('http://url/', expect.anything())
+    expect(mockFetch).toHaveBeenCalledWith('https://url/', expect.anything())
 
     expect(response.status).toEqual(200)
   })
@@ -82,7 +82,7 @@ describe('the SMS API controller', () => {
         text: 'test'
       })
 
-    expect(mockFetch).toHaveBeenCalledWith('http://url/', {
+    expect(mockFetch).toHaveBeenCalledWith('https://url/', {
       method: 'POST',
       body: JSON.stringify({
         recipients: [
@@ -99,7 +99,8 @@ describe('the SMS API controller', () => {
         'api-key': 'test',
         'api-login': 'test'
       },
-      signal: expect.any(AbortSignal)
+      signal: expect.any(AbortSignal),
+      redirect: 'error'
     })
 
     expect(response.status).toEqual(200)
