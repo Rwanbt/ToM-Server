@@ -119,18 +119,18 @@ const fillTable = <T extends string = never>(
         .then(() => {
           send(res, 200, { sid })
         })
-        .catch((err) => {
+        .catch(() => {
           // istanbul ignore next
-          idServer.logger.error('Insertion error', err)
+          idServer.logger.error('Insertion error')
           // istanbul ignore next
-          send(res, 400, errMsg('unknown', err))
+          send(res, 400, errMsg('unknown'))
         })
     })
-    .catch((err) => {
+    .catch(() => {
       /* istanbul ignore next */
-      idServer.logger.error('Token error', err)
+      idServer.logger.error('Token error')
       /* istanbul ignore next */
-      send(res, 400, errMsg('unknown', err))
+      send(res, 400, errMsg('unknown'))
     })
 }
 

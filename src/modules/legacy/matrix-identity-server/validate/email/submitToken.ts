@@ -68,21 +68,23 @@ const SubmitToken = <T extends string = never>(
                       }
                       send(res, 200, { success: true })
                     })
-                    .catch((e) => {})
+                    .catch(() => {
+                      idServer.logger.error('Failed to update email verification session')
+                      send(res, 500, errMsg('unknown'))
+                    })
                 })
-                .catch((e) => {})
+                .catch(() => {
+                  idServer.logger.error('Failed to consume email verification token')
+                  send(res, 500, errMsg('unknown'))
+                })
             } else {
               /* istanbul ignore next */
               send(res, 400, errMsg('invalidParam', 'sid or secret mismatch'))
             }
           })
-          .catch((e) => {
-            idServer.logger.error('Token error', e)
-            send(
-              res,
-              400,
-              errMsg('invalidParam', 'Unknown or expired token' + (e as string))
-            )
+          .catch(() => {
+            idServer.logger.error('Token error')
+            send(res, 400, errMsg('invalidParam', 'Unknown or expired token'))
           })
       } else {
         send(res, 400, errMsg('missingParams'))

@@ -26,8 +26,8 @@ export default (
         next()
 
         return
-      } catch (error) {
-        logger.error('Auth error', error)
+      } catch {
+        logger.error('Auth error')
         return res.status(401).json({ error: 'Unauthorized' })
       }
     })
