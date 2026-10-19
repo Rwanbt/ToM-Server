@@ -22,7 +22,7 @@ const mockLogger: Partial<TwakeLogger> = {
 }
 
 spyOn(IdentityServerDb.prototype, 'get')
-  .mockResolvedValue([{ data: JSON.stringify({ sub: '@test:example.org' }) }])
+  .mockResolvedValue([{ data: JSON.stringify({ sub: '@test:example.org', epoch: Date.now() }) }])
 
 // Use in-memory databases to avoid conflicts between parallel test workers
 const idServer = new IdServer(

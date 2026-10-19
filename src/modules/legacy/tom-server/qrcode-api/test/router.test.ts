@@ -13,7 +13,7 @@ import router, { PATH } from '../routes'
 const app = express()
 
 spyOn(IdentityServerDb.prototype, 'get')
-  .mockResolvedValue([{ data: JSON.stringify({ sub: '@test:example.org' }) }])
+  .mockResolvedValue([{ data: JSON.stringify({ sub: '@test:example.org', epoch: Date.now() }) }])
 
 const idServer = new IdServer(
   {

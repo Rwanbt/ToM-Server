@@ -10,6 +10,17 @@ export type SQLiteDatabase = Database
 
 export type SQLiteStatement = Statement
 
+// SQLite error messages can contain portions of raw SQL and user-controlled
+// values. Emit only the driver code; never serialize the original exception
+// into production logs for operations processing credentials or private data.
+const safeSqlErrorCode = (error: unknown): string => {
+  if (error && typeof error === 'object' && 'code' in error &&
+      typeof error.code === 'string' && /^SQLITE_[A-Z_]+$/.test(error.code)) {
+    return error.code
+  }
+  return 'SQLITE_ERROR'
+}
+
 class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
   declare db?: SQLiteDatabase
   createDatabases(
@@ -69,16 +80,14 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
         reject(new Error('DB not ready'))
         return
       }
-      this.logger.debug('[SQLite][rawQuery] Executing query', { query })
+      // Raw SQL may embed credentials rather than bound parameters.
+      this.logger.debug('[SQLite][rawQuery] Executing query')
       this.db.run(query, (err) => {
         if (err == null) {
-          this.logger.debug('[SQLite][rawQuery] Query successful', { query })
+          this.logger.debug('[SQLite][rawQuery] Query successful')
           resolve()
         } else {
-          this.logger.error('[SQLite][rawQuery] Query failed', {
-            query,
-            error: err
-          })
+          this.logger.error('[SQLite][rawQuery] Query failed', { errorCode: safeSqlErrorCode(err) })
           reject(err)
         }
       })
@@ -123,9 +132,8 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
             this.logger.error('[SQLite][insert] Failed', {
               table,
               fields: names,
-              values: vals,
               query,
-              error: err
+              errorCode: safeSqlErrorCode(err)
             })
             reject(err)
           } else {
@@ -419,7 +427,7 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
                 fields,
                 condition,
                 query,
-                error: err
+                errorCode: safeSqlErrorCode(err)
               })
               reject(err)
             } else {
@@ -691,7 +699,7 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
                 fields,
                 condition,
                 query,
-                error: err
+                errorCode: safeSqlErrorCode(err)
               })
               reject(err)
             } else {
@@ -833,7 +841,6 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
         this.logger.debug('[SQLite][match] Executing LIKE query', {
           table,
           searchFields,
-          value,
           fields,
           query
         })
@@ -846,9 +853,8 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
               this.logger.error('[SQLite][match] Query failed', {
                 table,
                 searchFields,
-                value,
                 query,
-                error: err
+                errorCode: safeSqlErrorCode(err)
               })
               reject(err)
             } else {
@@ -1084,9 +1090,8 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
                 table,
                 conditions: filters,
                 operators,
-                values,
                 query,
-                error: err
+                errorCode: safeSqlErrorCode(err)
               })
               reject(err)
             } else {

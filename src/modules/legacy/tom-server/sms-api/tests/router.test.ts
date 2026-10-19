@@ -32,7 +32,7 @@ const middlewareSpy = mock().mockImplementation((_req, _res, next) => {
 })
 
 spyOn(IdentityServerDb.prototype, 'get')
-  .mockResolvedValue([{ data: JSON.stringify({ sub: '@test:example.org' }) }])
+  .mockResolvedValue([{ data: JSON.stringify({ sub: '@test:example.org', epoch: Date.now() }) }])
 
 let idServer: IdServer
 
