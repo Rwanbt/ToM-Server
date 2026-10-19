@@ -91,4 +91,40 @@ describe('legacy ToM login log hygiene', () => {
     expect(callback).not.toHaveBeenCalled()
     expect(remote).toHaveBeenCalledTimes(1)
   })
+  it('revalidates stale cached Matrix tokens instead of bypassing remote revocation', async () => {
+    const db = { get: mock(async () => [{ data: JSON.stringify({ sub: '@alice:example.org', epoch: Date.now() - 3600000 }) }]), insert: mock() }
+    const logger = { warn: mock(), error: mock(), debug: mock(), info: mock() }
+    const remote = mock(async () => ({ ok: false, json: async () => ({ user_id: '@alice:example.org' }) }))
+    let finish!: (value: string) => void
+    const result = new Promise<string>(resolve => { finish = resolve })
+    const callback = mock(() => finish('authenticated'))
+    Authenticate(db as never, { matrix_server: 'example.org' } as never, logger as never, remote as never)(
+      { headers: { authorization: 'Bearer revoked-token' } } as never,
+      { writeHead: (status: number) => finish(String(status)), write: mock(), end: mock() } as never,
+      callback)
+    expect(await result).toBe('401')
+    expect(callback).not.toHaveBeenCalled()
+    expect(remote).toHaveBeenCalledTimes(1)
+  })
+  it('renews the timestamp of a stale token only after Matrix whoami succeeds', async () => {
+    const db = {
+      get: mock(async () => [{ data: JSON.stringify({ sub: '@alice:example.org', epoch: Date.now() - 3600000 }) }]),
+      update: mock(async () => []),
+      insert: mock(async () => [])
+    }
+    const logger = { warn: mock(), error: mock(), debug: mock(), info: mock() }
+    const remote = mock(async () => ({ ok: true, json: async () => ({ user_id: '@alice:example.org' }) }))
+    let complete!: () => void
+    const completed = new Promise<void>(resolve => { complete = resolve })
+    Authenticate(db as never, { matrix_server: 'example.org' } as never, logger as never, remote as never)(
+      { headers: { authorization: 'Bearer stale-token' } } as never,
+      { writeHead: mock(), write: mock(), end: mock() } as never,
+      () => complete())
+    await completed
+    expect(db.update).toHaveBeenCalledTimes(1)
+    expect(db.insert).not.toHaveBeenCalled()
+    expect(db.update).toHaveBeenCalledWith(
+      'matrixTokens', expect.objectContaining({ data: expect.stringContaining('@alice:example.org') }),
+      'id', 'stale-token')
+  })
 })

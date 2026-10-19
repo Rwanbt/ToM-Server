@@ -18,6 +18,10 @@ const Authenticate = (
   fetchWhoAmI: typeof fetch = fetch
 ): AuthenticationFunction => {
   const tokenRe = /^Bearer (\S+)$/
+  // Local Matrix identity caching is a performance optimization, not a
+  // permanent grant. Old credentials must be checked with the homeserver so
+  // revoked devices do not stay authenticated indefinitely.
+  const maxCachedTokenAgeMs = 5 * 60 * 1000
   const validMatrixUserId = (value: unknown): value is string =>
     typeof value === 'string' && /^@[^:\s]+:[^\s]+$/.test(value)
   const remoteAuth = RemoteAuthenticate(db, logger)
@@ -37,15 +41,19 @@ const Authenticate = (
       }
     }
     if (token != null) {
+      let hasCachedToken = false
       db.get('matrixTokens', ['data'], { id: token })
         .then((rows) => {
           const stored = rows?.[0]?.data
+          hasCachedToken = typeof stored === 'string'
           if (typeof stored !== 'string') {
             throw Error()
           }
           const data: unknown = JSON.parse(stored)
           if (!data || typeof data !== 'object' || !('sub' in data) ||
-              !validMatrixUserId(data.sub)) {
+              !validMatrixUserId(data.sub) || !('epoch' in data) ||
+              typeof data.epoch !== 'number' || !Number.isFinite(data.epoch) ||
+              data.epoch > epoch() || epoch() - data.epoch > maxCachedTokenAgeMs) {
             throw new Error('Token subject is invalid')
           }
           callback(data as tokenContent, token)
@@ -76,14 +84,13 @@ const Authenticate = (
                   sub: uid,
                   epoch: epoch()
                 }
-                // STORE
-                db.insert('matrixTokens', {
-                  // eslint-disable-next-line n/no-callback-literal
-                  // eslint-disable-next-line @typescript-eslint/ban-ts-comment, @typescript-eslint/prefer-ts-expect-error
-                  // @ts-ignore token is defined
-                  id: token,
-                  data: JSON.stringify(data)
-                }).catch(() => {
+                // Replace an expired cached identity after authoritative
+                // revalidation; inserting a duplicate would leave it expired
+                // and force every subsequent request back to the homeserver.
+                const persistence = hasCachedToken
+                  ? db.update('matrixTokens', { data: JSON.stringify(data) }, 'id', token)
+                  : db.insert('matrixTokens', { id: token, data: JSON.stringify(data) })
+                persistence.catch(() => {
                   /* istanbul ignore next */
                   logger.error('Unable to insert a token')
                 })
