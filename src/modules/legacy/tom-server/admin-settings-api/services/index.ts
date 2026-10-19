@@ -158,7 +158,9 @@ export default class AdminSettingsService implements IAdminSettingsService {
         headers: {
           'Content-Type': 'image/png'
         },
-        body: buffer
+        // Fetch's web BodyInit typing requires an ArrayBuffer-backed view;
+        // Buffer may be backed by a SharedArrayBuffer under Node/Bun.
+        body: Uint8Array.from(buffer)
       })
 
       if (!uploadResp.ok)
