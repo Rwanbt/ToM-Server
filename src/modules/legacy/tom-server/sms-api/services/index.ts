@@ -8,7 +8,8 @@ export default class SmsService implements ISmsService {
 
   constructor(
     private readonly config: Config,
-    private readonly logger: TwakeLogger
+    private readonly logger: TwakeLogger,
+    private readonly requestTimeoutMs = 15_000
   ) {
     if (
       config.sms_api_url === undefined ||
@@ -16,6 +17,9 @@ export default class SmsService implements ISmsService {
       config.sms_api_login === undefined
     ) {
       throw new Error('SMS API configuration is missing')
+    }
+    if (!Number.isSafeInteger(requestTimeoutMs) || requestTimeoutMs <= 0) {
+      throw new Error('SMS API request timeout must be positive')
     }
 
     this.headers = {
@@ -34,6 +38,10 @@ export default class SmsService implements ISmsService {
    * @param {SMS} sms - the sms payload to send
    */
   public send = async ({ text, to }: SMS): Promise<void> => {
+    // A provider that never responds must not hold an Express request open
+    // indefinitely. Always cancel the timer, including on transport failure.
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), this.requestTimeoutMs)
     try {
       const response = await fetch(this.config.sms_api_url as string, {
         method: 'POST',
@@ -43,7 +51,8 @@ export default class SmsService implements ISmsService {
           text,
           type: 'sms_low_cost'
         } satisfies SendSmsPayload),
-        headers: this.headers
+        headers: this.headers,
+        signal: controller.signal
       })
 
       if (response.status < 200 || response.status >= 300) {
@@ -57,6 +66,8 @@ export default class SmsService implements ISmsService {
       // numbers. Keep the HTTP status above, but do not log untrusted details.
       this.logger.debug('SMS API request failed')
       throw new Error('Failed to send SMS')
+    } finally {
+      clearTimeout(timer)
     }
   }
 }

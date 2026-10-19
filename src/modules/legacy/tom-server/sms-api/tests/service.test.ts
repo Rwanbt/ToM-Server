@@ -44,7 +44,8 @@ describe('the SMS service', () => {
         'cache-control': 'no-cache',
         'api-key': 'test',
         'api-login': 'test'
-      }
+      },
+      signal: expect.any(AbortSignal)
     })
   })
 
@@ -70,4 +71,54 @@ describe('the SMS service', () => {
       }
     )
   }
+
+  it('aborts a stalled SMS provider request without exposing transport secrets', async () => {
+    const transportSecret = 'sms-provider-secret-token-9876'
+    let observedSignal: AbortSignal | undefined
+    mockFetch.mockImplementation(
+      (_url: string, options: { signal?: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          observedSignal = options.signal
+          options.signal?.addEventListener(
+            'abort',
+            () => reject(new Error(transportSecret)),
+            { once: true }
+          )
+        })
+    )
+    const boundedService = new SmsService(smsConfig as Config, logger, 15)
+
+    let watchdog: ReturnType<typeof setTimeout> | undefined
+    try {
+      await expect(
+        Promise.race([
+          boundedService.send({ to: ['123456'], text: 'test' }),
+          new Promise<never>((_resolve, reject) => {
+            watchdog = setTimeout(
+              () => reject(new Error('Provider request was not aborted')),
+              120
+            )
+          })
+        ])
+      ).rejects.toThrow('Failed to send SMS')
+    } finally {
+      clearTimeout(watchdog)
+    }
+    expect(observedSignal?.aborted).toBe(true)
+  })
+
+  it('clears the provider timeout after a successful response', async () => {
+    let observedSignal: AbortSignal | undefined
+    mockFetch.mockImplementation(
+      (_url: string, options: { signal?: AbortSignal }) => {
+        observedSignal = options.signal
+        return Promise.resolve({ status: 200 } as Response)
+      }
+    )
+    const boundedService = new SmsService(smsConfig as Config, logger, 20)
+
+    await boundedService.send({ to: ['123456'], text: 'test' })
+    await new Promise((resolve) => setTimeout(resolve, 35))
+    expect(observedSignal?.aborted).toBe(false)
+  })
 })

@@ -98,7 +98,8 @@ describe('the SMS API controller', () => {
         'cache-control': 'no-cache',
         'api-key': 'test',
         'api-login': 'test'
-      }
+      },
+      signal: expect.any(AbortSignal)
     })
 
     expect(response.status).toEqual(200)
