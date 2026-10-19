@@ -4,13 +4,16 @@ import IdentityServerDb, { type Collections, type IdDbBackend } from "./index";
 
 type TokenDb = IdDbBackend<Collections>;
 
-function fixture(overrides: Partial<TokenDb>, logger?: Partial<TwakeLogger>): IdentityServerDb {
+function fixture(
+  overrides: Partial<TokenDb>,
+  logger?: { info?: (...args: unknown[]) => unknown; error?: (...args: unknown[]) => unknown },
+): IdentityServerDb {
   // This exercises the *real* production methods without starting a database,
   // cron timer, real credentials, or services in the caller's environment.
   const instance = Object.create(IdentityServerDb.prototype) as IdentityServerDb;
   instance.db = overrides as TokenDb;
   Object.defineProperty(instance, "logger", {
-    value: (logger ?? { error: () => undefined, info: () => undefined }) as TwakeLogger,
+    value: (logger ?? { error: () => undefined, info: () => undefined }) as unknown as TwakeLogger,
   });
   return instance;
 }
@@ -20,7 +23,7 @@ describe("identity DB token fail-closed behavior", () => {
     const address = "private-invite-address@example.com";
     const calls: unknown[][] = [];
     const db = fixture(
-      { insert: async () => undefined },
+      { insert: async () => [] },
       { info: (...args: unknown[]) => { calls.push(args); } },
     );
     const token = await db.createInvitationToken(address, { secret: "private-payload" });
