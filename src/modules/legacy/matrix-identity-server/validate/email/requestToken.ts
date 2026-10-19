@@ -101,13 +101,11 @@ const fillTable = <T extends string = never>(
       idServer.conf.mail_link_delay,
       nextLink
     )
-    .then((token) => {
-      void transport.sendMail({
-        to: dst,
-        raw: mailBody(verificationTemplate, dst, token, clientSecret, sid)
-      })
-      idServer.db
-        .insert('mappings', {
+    .then(async (token) => {
+      try {
+        // A session is successful only when its mapping exists and the SMTP
+        // provider has accepted the message. Never fire-and-forget sendMail.
+        await idServer.db.insert('mappings', {
           client_secret: clientSecret,
           address: dst,
           medium: 'email',
@@ -116,15 +114,24 @@ const fillTable = <T extends string = never>(
           session_id: sid,
           send_attempt: sendAttempt
         })
-        .then(() => {
-          send(res, 200, { sid })
+        await transport.sendMail({
+          to: dst,
+          raw: mailBody(verificationTemplate, dst, token, clientSecret, sid)
         })
-        .catch(() => {
-          // istanbul ignore next
-          idServer.logger.error('Insertion error')
-          // istanbul ignore next
-          send(res, 400, errMsg('unknown'))
-        })
+        send(res, 200, { sid })
+      } catch {
+        idServer.logger.error('Failed to prepare or deliver email verification')
+        // Remove unusable state so clients can safely retry their request.
+        await Promise.allSettled([
+          idServer.db.deleteEqualAnd(
+            'mappings',
+            { field: 'client_secret', value: clientSecret },
+            { field: 'session_id', value: sid }
+          ),
+          idServer.db.deleteToken(token)
+        ])
+        send(res, 503, errMsg('unknown'))
+      }
     })
     .catch(() => {
       /* istanbul ignore next */
