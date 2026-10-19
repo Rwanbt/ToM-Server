@@ -155,6 +155,50 @@ describe('AdminService', () => {
   })
 
   describe('_fetchAndUploadAvatar', () => {
+    it('rejects local metadata and non-HTTPS avatar URLs before making any request', async () => {
+      const outgoing = spyOn(global, 'fetch').mockResolvedValue({ ok: true } as any)
+      for (const url of [
+        'http://169.254.169.254/latest/meta-data/',
+        'http://avatar.example.com/photo.png',
+        'https://127.0.0.1:8443/internal',
+        'https://[::1]/internal',
+        'https://localhost/admin',
+        'https://user:password@avatar.example.com/avatar.png'
+      ]) {
+        await expect(service['_fetchAndUploadAvatar'](url))
+          .rejects.toThrow('Avatar source not permitted')
+      }
+      expect(outgoing).not.toHaveBeenCalled()
+    })
+
+    it('rejects redirecting avatar providers before following their Location', async () => {
+      const response = new Response(null, {
+        status: 302,
+        headers: { Location: 'http://127.0.0.1/private' }
+      })
+      const outgoing = spyOn(global, 'fetch').mockResolvedValueOnce(response)
+      await expect(service['_fetchAndUploadAvatar']('https://avatar.example.com/img.png'))
+        .rejects.toThrow()
+      expect(outgoing).toHaveBeenCalledTimes(1)
+      expect(outgoing).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ redirect: 'error' })
+      )
+    })
+
+    it('bounds avatar download size even if the remote response omits Content-Length', async () => {
+      const chunks = [new Uint8Array(3 * 1024 * 1024), new Uint8Array(3 * 1024 * 1024)]
+      const stream = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          const chunk = chunks.shift()
+          if (chunk) controller.enqueue(chunk)
+          else controller.close()
+        }
+      })
+      spyOn(global, 'fetch').mockResolvedValueOnce(new Response(stream))
+      await expect(service['_fetchAndUploadAvatar']('https://avatar.example.com/img.png'))
+        .rejects.toThrow('Avatar file too large')
+    })
     it('does not log the sensitive avatar URL during a fetch failure', async () => {
       const secret = 'private-avatar-query-secret-493'
       spyOn(global, 'fetch').mockRejectedValueOnce(new Error('upstream failure'))
@@ -166,7 +210,7 @@ describe('AdminService', () => {
     it('uploads avatar and returns MXC URL', async () => {
       const fakeMxc = 'mxc://example/avatar'
       const bufferMock = Buffer.from('test')
-      const fetchResp: any = { ok: true, arrayBuffer: async () => bufferMock }
+      const fetchResp: any = new Response(bufferMock)
       const uploadResp: any = {
         ok: true,
         json: async () => ({ content_uri: fakeMxc })
@@ -177,7 +221,7 @@ describe('AdminService', () => {
         .mockResolvedValueOnce(uploadResp as any)
 
       const mxc = await service['_fetchAndUploadAvatar'](
-        'http://avatar.url/img.png'
+        'https://avatar.example.com/img.png'
       )
       expect(mxc).toBe(fakeMxc)
     })
@@ -189,7 +233,7 @@ describe('AdminService', () => {
         statusText: 'ERR'
       } as any)
       await expect(
-        service['_fetchAndUploadAvatar']('http://avatar.url')
+        service['_fetchAndUploadAvatar']('https://avatar.example.com')
       ).rejects.toThrow('Failed to fetch avatar: 500 ERR')
       expect(logger.error).toHaveBeenCalledWith(
         expect.stringContaining('Avatar upload failed')

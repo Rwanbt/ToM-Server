@@ -8,6 +8,52 @@ import {
 } from '../types'
 import { Lru } from 'toad-cache'
 import { buildUrl } from '../../utils'
+import { isIP } from 'node:net'
+
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024
+
+function assertExternalAvatarUrl(value: string): URL {
+  const url = new URL(value)
+  const host = url.hostname.toLowerCase()
+  if (
+    url.protocol !== 'https:' ||
+    url.username.length > 0 ||
+    url.password.length > 0 ||
+    url.hash.length > 0 ||
+    isIP(host) !== 0 ||
+    host.startsWith('[') ||
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host.endsWith('.local') ||
+    host.endsWith('.internal')
+  ) {
+    throw new Error('Avatar source not permitted')
+  }
+  return url
+}
+
+async function boundedAvatarBytes(response: Response): Promise<Buffer> {
+  const contentLength = response.headers.get('content-length')
+  if (contentLength != null && Number(contentLength) > MAX_AVATAR_BYTES) {
+    throw new Error('Avatar file too large')
+  }
+  const reader = response.body?.getReader()
+  if (!reader) return Buffer.alloc(0)
+  const chunks: Uint8Array[] = []
+  let length = 0
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      length += value.byteLength
+      if (length > MAX_AVATAR_BYTES) throw new Error('Avatar file too large')
+      chunks.push(value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+  return Buffer.concat(chunks, length)
+}
 export default class AdminSettingsService implements IAdminSettingsService {
   private readonly device = 'admin_service'
   private readonly tokenService: ITokenService
@@ -91,16 +137,21 @@ export default class AdminSettingsService implements IAdminSettingsService {
   ): Promise<string | null> => {
     try {
       this.logger.info('Fetching avatar image')
-      const url = new URL(avatarUrl)
+      // Refuse local/private literal targets and schemes that could read
+      // server resources. Redirects cannot bypass the initial URL checks.
+      const url = assertExternalAvatarUrl(avatarUrl)
       url.searchParams.set('format', 'png')
       url.searchParams.set('fallback', 'initials')
-      const resp = await fetch(url.toString())
+      const resp = await fetch(url.toString(), {
+        redirect: 'error',
+        signal: AbortSignal.timeout(15000)
+      })
       if (!resp.ok)
         throw new Error(
           `Failed to fetch avatar: ${resp.status} ${resp.statusText}`
         )
 
-      const buffer = Buffer.from(await resp.arrayBuffer())
+      const buffer = await boundedAvatarBytes(resp)
       const uploadUrl = `https://${this.config.matrix_server}/_matrix/media/v3/upload?filename=avatar.png`
       const uploadResp = await this.makeRequestWithAdminToken(uploadUrl, {
         method: 'POST',
