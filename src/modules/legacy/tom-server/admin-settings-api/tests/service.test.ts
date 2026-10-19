@@ -41,8 +41,20 @@ describe('AdminService', () => {
         'Failed to get access token'
       )
       expect(logger.error).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to get access token'),
-        expect.any(Object)
+        expect.stringContaining('Failed to get access token')
+      )
+    })
+
+    it('does not leak an admin credential from an upstream failure', async () => {
+      const sensitiveCredential = 'admin-api-token-do-not-log-974'
+      spyOn(service['tokenService'], 'getAccessTokenWithCreds')
+        .mockRejectedValue(new Error(sensitiveCredential))
+
+      await expect(service['_getAdminAccessToken']()).rejects.toThrow(
+        'Failed to get access token'
+      )
+      expect(JSON.stringify(logger.error.mock.calls)).not.toContain(
+        sensitiveCredential
       )
     })
 
@@ -105,6 +117,20 @@ describe('AdminService', () => {
   })
 
   describe('makeRequestWithAdminToken', () => {
+    it('does not expose an endpoint query token in the retry-exhaustion error', async () => {
+      const secret = 'admin-query-token-secret-493'
+      spyOn(service as any, '_getCachedToken').mockResolvedValue('token')
+      spyOn(service as any, '_doFetch').mockResolvedValue({ status: 401 } as any)
+
+      let message = ''
+      try {
+        await service.makeRequestWithAdminToken(`https://matrix.example.com/?token=${secret}`, {}, 0)
+      } catch (error) {
+        message = error instanceof Error ? error.message : String(error)
+      }
+      expect(message).toContain('failed after 1 attempts')
+      expect(message).not.toContain(secret)
+    })
     it('returns response if status != 401', async () => {
       spyOn(service as any, '_getCachedToken').mockResolvedValue('token')
       spyOn(service as any, '_doFetch')
@@ -129,6 +155,14 @@ describe('AdminService', () => {
   })
 
   describe('_fetchAndUploadAvatar', () => {
+    it('does not log the sensitive avatar URL during a fetch failure', async () => {
+      const secret = 'private-avatar-query-secret-493'
+      spyOn(global, 'fetch').mockRejectedValueOnce(new Error('upstream failure'))
+      await expect(service['_fetchAndUploadAvatar'](`https://avatar.example.com/?token=${secret}`))
+        .rejects.toThrow()
+      expect(Bun.inspect(logger.info.mock.calls)).not.toContain(secret)
+      expect(Bun.inspect(logger.error.mock.calls)).not.toContain(secret)
+    })
     it('uploads avatar and returns MXC URL', async () => {
       const fakeMxc = 'mxc://example/avatar'
       const bufferMock = Buffer.from('test')
@@ -158,23 +192,28 @@ describe('AdminService', () => {
         service['_fetchAndUploadAvatar']('http://avatar.url')
       ).rejects.toThrow('Failed to fetch avatar: 500 ERR')
       expect(logger.error).toHaveBeenCalledWith(
-        expect.stringContaining('Avatar upload failed'),
-        expect.any(Object)
+        expect.stringContaining('Avatar upload failed')
       )
     })
   })
 
   describe('updateUserInformation', () => {
+    it('does not log personal profile fields on successful update', async () => {
+      const secret = 'private-user-id-493'
+      const name = 'Private Display Name 493'
+      spyOn(service, 'makeRequestWithAdminToken')
+        .mockResolvedValue({ ok: true, json: async () => ({}) } as any)
+      await service.updateUserInformation(secret, { displayName: name })
+      expect(Bun.inspect(logger.info.mock.calls)).not.toContain(secret)
+      expect(Bun.inspect(logger.info.mock.calls)).not.toContain(name)
+    })
     it('sends displayName only if no avatarUrl', async () => {
       spyOn(service, 'makeRequestWithAdminToken')
         .mockResolvedValue({ ok: true, json: async () => ({}) } as any)
 
       await service.updateUserInformation('user1', { displayName: 'Alice' })
 
-      expect(logger.info).toHaveBeenCalledWith(
-        expect.stringContaining('Updating user user1 profile with'),
-        { displayname: 'Alice' }
-      )
+      expect(logger.info).toHaveBeenCalledWith('Updating user profile')
     })
 
     it('sends displayName and avatar_url if avatarUrl provided', async () => {
@@ -188,10 +227,7 @@ describe('AdminService', () => {
         avatarUrl: 'http://avatar.url'
       })
 
-      expect(logger.info).toHaveBeenCalledWith(
-        expect.stringContaining('Updating user user1 profile with'),
-        { displayname: 'Alice', avatar_url: mxc }
-      )
+      expect(logger.info).toHaveBeenCalledWith('Updating user profile')
     })
 
     it('throws if makeRequestWithAdminToken fails', async () => {

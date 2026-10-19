@@ -54,7 +54,7 @@ export default class AdminSettingsService implements IAdminSettingsService {
     }
 
     if (Object.keys(updatePayload).length > 0) {
-      this.logger.info(`Updating user ${userId} profile with`, updatePayload)
+      this.logger.info('Updating user profile')
 
       const response = await this.makeRequestWithAdminToken(
         buildUrl(
@@ -67,18 +67,16 @@ export default class AdminSettingsService implements IAdminSettingsService {
         }
       )
 
-      const data = await response.json()
       if (!response.ok) {
-        this.logger.error(`Failed to update profile for ${userId}`, {
-          status: response.status,
-          data
+        this.logger.error('Failed to update user profile', {
+          status: response.status
         })
         throw new Error(
           `Failed to update profile: ${response.status} ${response.statusText}`
         )
       }
 
-      this.logger.info(`Successfully updated profile for user ${userId}`)
+      this.logger.info('Successfully updated user profile')
     }
   }
 
@@ -92,7 +90,7 @@ export default class AdminSettingsService implements IAdminSettingsService {
     avatarUrl: string
   ): Promise<string | null> => {
     try {
-      this.logger.info(`Fetching avatar image from ${avatarUrl}`)
+      this.logger.info('Fetching avatar image')
       const url = new URL(avatarUrl)
       url.searchParams.set('format', 'png')
       url.searchParams.set('fallback', 'initials')
@@ -119,13 +117,11 @@ export default class AdminSettingsService implements IAdminSettingsService {
 
       const uploadResult = (await uploadResp.json()) as UploadUserAvatarResponse
       const avatarMxc = uploadResult.content_uri ?? null
-      this.logger.info(
-        `Avatar upload success: ${avatarMxc ?? 'no mxc returned'}`
-      )
+      this.logger.info('Avatar upload completed')
 
       return avatarMxc
     } catch (err) {
-      this.logger.error('Avatar upload failed', { error: err })
+      this.logger.error('Avatar upload failed')
       throw err
     }
   }
@@ -154,7 +150,7 @@ export default class AdminSettingsService implements IAdminSettingsService {
 
       if (attempt >= maxRetries) {
         throw new Error(
-          `Request to ${endpoint} failed after ${
+          `Admin request failed after ${
             attempt + 1
           } attempts (status: ${response.status})`
         )
@@ -207,10 +203,11 @@ export default class AdminSettingsService implements IAdminSettingsService {
       }
 
       return accessToken
-    } catch (error) {
-      this.logger.error(`Failed to get access token`, { error })
-
-      throw error
+    } catch {
+      // Neither authentication failures nor their causes may expose the
+      // admin password, access token or OIDC cookies through server logs.
+      this.logger.error('Failed to get access token')
+      throw new Error('Failed to get access token')
     }
   }
 

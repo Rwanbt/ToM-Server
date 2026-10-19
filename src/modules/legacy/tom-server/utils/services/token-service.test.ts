@@ -690,4 +690,37 @@ describe('the Token service', () => {
       expect(result).toBeNull()
     })
   })
+
+  describe('authentication diagnostics privacy', () => {
+    const secret = 'oidc-cookie-bearer-secret-not-for-logs-974'
+
+    it('does not log an upstream OIDC discovery exception carrying credentials', async () => {
+      loggerMock.error.mockClear()
+      global.fetch = mockFetch(async () => { throw new Error(secret) })
+
+      expect(await tokenService.getOidcProvider()).toBeNull()
+      expect(loggerMock.error).toHaveBeenCalled()
+      expect(Bun.inspect(loggerMock.error.mock.calls)).not.toContain(secret)
+    })
+
+    it('does not log an upstream auth-provider CSRF exception carrying credentials', async () => {
+      loggerMock.error.mockClear()
+      global.fetch = mockFetch(async () => { throw new Error(secret) })
+
+      expect(await tokenService.getAuthCookie('admin', 'password')).toBeNull()
+      expect(loggerMock.error).toHaveBeenCalled()
+      expect(Bun.inspect(loggerMock.error.mock.calls)).not.toContain(secret)
+    })
+
+    it('does not log an upstream password-login exception carrying credentials', async () => {
+      loggerMock.error.mockClear()
+      global.fetch = mockFetch()
+        .mockResolvedValueOnce({ json: async () => ({ token: 'csrf' }) } as Response)
+        .mockRejectedValueOnce(new Error(secret))
+
+      expect(await tokenService.getAuthCookie('admin', 'password')).toBeNull()
+      expect(loggerMock.error).toHaveBeenCalled()
+      expect(Bun.inspect(loggerMock.error.mock.calls)).not.toContain(secret)
+    })
+  })
 })

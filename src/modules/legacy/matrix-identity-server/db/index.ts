@@ -462,12 +462,13 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
           data: JSON.stringify(data),
         })
         .then(() => {
-          this.logger.info(`Invitation token created for ${address}`);
+          // Invitation addresses are personal data and should not reach logs.
+          this.logger.info("Invitation token created");
           resolve(id);
         })
         .catch((err) => {
           /* istanbul ignore next */
-          this.logger.error("Failed to insert token", err);
+          this.logger.error("Failed to insert token");
           reject(err);
         });
     });
@@ -487,8 +488,8 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
     try {
       const tokenResults = await this.db.get("invitationTokens", ["data", "address", "id"], { address });
       return tokenResults.map((row) => JSON.parse(row.data as string));
-    } catch (error) {
-      this.logger.error("Failed to get tokens", error);
+    } catch {
+      this.logger.error("Failed to get tokens");
     }
   }
 
@@ -512,7 +513,7 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
         })
         .catch((e) => {
           /* istanbul ignore next */
-          this.logger.error("Failed to get token", e);
+          this.logger.error("Failed to get token");
           reject(e);
         });
     });

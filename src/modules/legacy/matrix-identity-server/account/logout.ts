@@ -13,9 +13,11 @@ const Logout = <T extends string = never>(
         .then(() => {
           send(res, 200, {})
         })
-        .catch((e) => {
+        .catch(() => {
           /* istanbul ignore next */
-          idServer.logger.warn(`Unable to delete token ${id}`, e)
+          // Token identifiers are bearer credentials: never log the ID or a
+          // database exception that may embed its value.
+          idServer.logger.warn('Unable to delete access token')
           /* istanbul ignore next */
           send(res, 401, errMsg('unknownToken'))
         })

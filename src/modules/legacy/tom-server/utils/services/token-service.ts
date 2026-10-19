@@ -78,10 +78,9 @@ export default class TokenService implements ITokenService {
       }
 
       return accessToken
-    } catch (error) {
-      this.logger.error('[TokenService] Failed to fetch access_token', {
-        error
-      })
+    } catch {
+      // Authentication errors may embed cookies and one-time login tokens.
+      this.logger.error('[TokenService] Failed to fetch access_token')
       return null
     }
   }
@@ -115,8 +114,8 @@ export default class TokenService implements ITokenService {
       }
 
       return token
-    } catch (error) {
-      this.logger.error('Failed to fetch access_token', { error })
+    } catch {
+      this.logger.error('Failed to fetch access_token')
       return null
     }
   }
@@ -146,8 +145,8 @@ export default class TokenService implements ITokenService {
       }
 
       return data.access_token
-    } catch (error) {
-      this.logger.error('Failed to fetch access_token', { error })
+    } catch {
+      this.logger.error('Failed to fetch access_token')
       return null
     }
   }
@@ -185,8 +184,8 @@ export default class TokenService implements ITokenService {
       }
 
       return oidcProvider.identity_providers[0]?.id ?? null
-    } catch (error) {
-      this.logger.error('Failed to fetch OIDC login provider', { error })
+    } catch {
+      this.logger.error('Failed to fetch OIDC login provider')
 
       return null
     }
@@ -223,8 +222,8 @@ export default class TokenService implements ITokenService {
       }
 
       return { location, cookies }
-    } catch (error) {
-      this.logger.error('Failed to fetch access_token', { error })
+    } catch {
+      this.logger.error('Failed to fetch access_token')
       return null
     }
   }
@@ -302,8 +301,8 @@ export default class TokenService implements ITokenService {
       }
 
       return loginTokenMatch[1]
-    } catch (error) {
-      this.logger.error('Failed to fetch LoginToken', { error })
+    } catch {
+      this.logger.error('Failed to fetch LoginToken')
       return null
     }
   }
@@ -339,8 +338,8 @@ export default class TokenService implements ITokenService {
       }
 
       return cookie
-    } catch (error) {
-      this.logger.error('Failed to fetch auth cookie', { error })
+    } catch {
+      this.logger.error('Failed to fetch auth cookie')
       return null
     }
   }
@@ -376,10 +375,8 @@ export default class TokenService implements ITokenService {
       }
 
       return token
-    } catch (error) {
-      this.logger.error('Failed to fetch the login from auth provider', {
-        error
-      })
+    } catch {
+      this.logger.error('Failed to fetch the login from auth provider')
 
       return null
     }
