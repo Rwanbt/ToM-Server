@@ -27,8 +27,8 @@ export default class SmsApiMiddleware implements ISmsApiMiddleware {
       }
 
       next()
-    } catch (error) {
-      this.logger.debug('Missing destination or text', { error })
+    } catch {
+      this.logger.debug('Missing destination or text')
       res.status(400).json({ message: 'Bad Request' })
     }
   }
@@ -48,15 +48,13 @@ export default class SmsApiMiddleware implements ISmsApiMiddleware {
 
       destinations.forEach((destination: string) => {
         if (!validator.isMobilePhone(destination)) {
-          throw new Error('Invalid destination phone', {
-            cause: `Invalid phone ${destination}`
-          })
+          throw new Error('Invalid destination phone')
         }
       })
 
       next()
-    } catch (error) {
-      this.logger.debug('Invalid phone number provided', { error })
+    } catch {
+      this.logger.debug('Invalid phone number provided')
       res.status(400).json({ message: 'Invalid phone number' })
     }
   }
