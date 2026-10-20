@@ -61,9 +61,11 @@ const SignEd25519 = <T extends string = never>(
                   )
                 )
               })
-              .catch((err) => {
-                idServer.logger.error('Token denied', err)
-                send(res, 404, errMsg('notFound', err))
+              .catch(() => {
+                // Provider failures may include the full invitation token.
+                // Do not relay the exception to logging sinks or the client.
+                idServer.logger.error('Token denied')
+                send(res, 404, errMsg('notFound'))
               })
           }
         })
