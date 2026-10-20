@@ -29,13 +29,32 @@ const validateMatrixToken = (logger: TwakeLogger) => {
             reject(new Error('Matrix resolver returned no endpoint'))
             return
           }
-          fetch(
-            encodeURI(
-              `${baseUrl}_matrix/federation/v1/openid/userinfo?access_token=${accessToken}`
-            )
-          )
+          // Treat the token as a single parameter. encodeURI() does not
+          // escape '&', '#', '?' and can change the request's meaning.
+          let endpoint: URL
+          try {
+            endpoint = new URL('_matrix/federation/v1/openid/userinfo', baseUrl)
+            const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(endpoint.hostname)
+            if ((endpoint.protocol !== 'https:' && !(endpoint.protocol === 'http:' && loopback)) ||
+                endpoint.username || endpoint.password || endpoint.hash) {
+              reject('Invalid server')
+              return
+            }
+            endpoint.searchParams.set('access_token', accessToken)
+          } catch {
+            reject('Invalid server')
+            return
+          }
+          fetch(endpoint.toString(), {
+            // Never forward a bearer-token URL to a redirect destination.
+            redirect: 'error',
+            timeout: 15000
+          })
             // eslint-disable-next-line @typescript-eslint/promise-function-async
-            .then((res) => res.json())
+            .then((res) => {
+              if (!res.ok) throw new Error('OpenID verification rejected')
+              return res.json()
+            })
             .then((userInfo) => {
               if ((userInfo as userInfoResponse).sub != null) {
                 const cmp = (userInfo as userInfoResponse).sub.match(
