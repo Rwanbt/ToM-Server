@@ -133,9 +133,11 @@ class Pg<T extends string> extends SQL<T> implements IdDbBackend<T> {
       this.logger.error('[Pg][rawQuery] DB not ready')
       return Promise.reject(new Error('DB not ready'))
     }
-    this.logger.debug('[Pg][rawQuery] Executing query', { query })
+    // Queries contain inline values including access tokens and user data.
+    // Do not disclose SQL text or database exceptions to diagnostic sinks.
+    this.logger.debug('[Pg][rawQuery] Executing query')
     return this.db.query(query).catch((err) => {
-      this.logger.error('[Pg][rawQuery] Query failed', { query, error: err })
+      this.logger.error('[Pg][rawQuery] Query failed')
       throw err
     })
   }
