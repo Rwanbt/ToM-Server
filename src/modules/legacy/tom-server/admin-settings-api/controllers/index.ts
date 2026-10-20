@@ -35,7 +35,7 @@ export default class AdminSettingsrController
       const updatePayload = req.body
 
       // Validate that the user ID is present
-      if (userId.length === 0) {
+      if (typeof userId !== 'string' || userId.length === 0) {
         res.status(400).json({ message: 'Missing user ID' })
         return
       }

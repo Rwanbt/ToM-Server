@@ -7,7 +7,7 @@ import { getLogger } from '../../../logger'
 describe('the SMS API middleware', () => {
   let mockRequest: Partial<AuthRequest>
   let mockResponse: Partial<Response>
-  const nextFunction: NextFunction = mock()
+  const nextFunction = mock()
   const logger = getLogger()
 
   const smsApiMiddlewareMock = new SmsApiMiddleware(logger)

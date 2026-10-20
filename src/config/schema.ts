@@ -247,7 +247,14 @@ const DEFAULT_CREATEROOM_PROXY_PRESETS = [
   },
 ];
 
-const databaseSettingsSchema = z.object({
+const databaseSettingsSchema: z.ZodObject<{
+  host: z.ZodString;
+  name: z.ZodString;
+  user: z.ZodString;
+  password: z.ZodString;
+  ssl: z.ZodDefault<z.ZodBoolean>;
+  vacuum_delay: z.ZodDefault<z.ZodNumber>;
+}> = z.object({
   host: z.string(),
   name: z.string(),
   user: z.string(),
@@ -256,41 +263,70 @@ const databaseSettingsSchema = z.object({
   vacuum_delay: z.number().default(DEFAULT_DB_VACUUM_DELAY),
 });
 
-const rateLimitingSchema = z.object({
+const rateLimitingSchema: z.ZodObject<{
+  window_ms: z.ZodDefault<z.ZodNumber>;
+  max_requests: z.ZodDefault<z.ZodNumber>;
+}> = z.object({
   window_ms: z.number().default(DEFAULT_RATE_LIMIT_WINDOW_MS),
   max_requests: z.number().default(DEFAULT_RATE_LIMIT_MAX_REQUESTS),
 });
 
-const synapseAdminSchema = z.object({
+const synapseAdminSchema: z.ZodObject<{
+  login: z.ZodDefault<z.ZodOptional<z.ZodString>>;
+  password: z.ZodDefault<z.ZodOptional<z.ZodString>>;
+  access_token: z.ZodDefault<z.ZodString>;
+}> = z.object({
   login: z.string().optional().default(""),
   password: z.string().optional().default(""),
   access_token: z.string().default(""),
 });
 
-const commonSettingsSchema = z.object({
+const commonSettingsSchema: z.ZodObject<{
+  enabled: z.ZodDefault<z.ZodBoolean>;
+  application_url: z.ZodDefault<z.ZodString>;
+}> = z.object({
   enabled: z.boolean().default(false),
   application_url: z.string().default(""),
 });
 
-const defaultVisibilitySettingsSchema = z.object({
+const defaultVisibilitySettingsSchema: z.ZodObject<{
+  visibility: z.ZodDefault<z.ZodString>;
+  visible_fields: z.ZodDefault<z.ZodArray<z.ZodString>>;
+}> = z.object({
   visibility: z.string().default(DEFAULT_VISIBILITY),
   visible_fields: z.array(z.string()).default([]),
 });
 
-const userProfileSchema = z.object({
+const userProfileSchema: z.ZodObject<{
+  default_visibility_settings: z.ZodPrefault<typeof defaultVisibilitySettingsSchema>;
+}> = z.object({
   default_visibility_settings: defaultVisibilitySettingsSchema.prefault({}),
 });
 
-const userDirectorySchema = z.object({
+const userDirectorySchema: z.ZodObject<{
+  enabled: z.ZodDefault<z.ZodBoolean>;
+}> = z.object({
   enabled: z.boolean().default(false),
 });
 
-const createroomProxyFailureSchema = z.object({
+const createroomProxyFailureSchema: z.ZodObject<{
+  max_retries: z.ZodDefault<z.ZodNumber>;
+  nuke_room: z.ZodDefault<z.ZodBoolean>;
+}> = z.object({
   max_retries: z.number().default(DEFAULT_CREATEROOM_PROXY_MAX_RETRIES),
   nuke_room: z.boolean().default(DEFAULT_CREATEROOM_PROXY_NUKE_ROOM),
 });
 
-const directChatMaskSchema = z.object({
+const directChatMaskSchema: z.ZodObject<{
+  ban: z.ZodOptional<z.ZodNumber>;
+  invite: z.ZodOptional<z.ZodNumber>;
+  kick: z.ZodOptional<z.ZodNumber>;
+  redact: z.ZodOptional<z.ZodNumber>;
+  state_default: z.ZodOptional<z.ZodNumber>;
+  users_default: z.ZodOptional<z.ZodNumber>;
+  creator_becomes: z.ZodOptional<z.ZodNumber>;
+  events: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodNumber>>;
+}> = z.object({
   ban: z.number().optional(),
   invite: z.number().optional(),
   kick: z.number().optional(),
@@ -301,7 +337,32 @@ const directChatMaskSchema = z.object({
   events: z.record(z.string(), z.number()).optional(),
 });
 
-const presetConfigSchema = z.object({
+const presetConfigSchema: z.ZodObject<{
+  name: z.ZodString;
+  users_default: z.ZodDefault<z.ZodNumber>;
+  events_default: z.ZodDefault<z.ZodNumber>;
+  invite: z.ZodDefault<z.ZodNumber>;
+  state_default: z.ZodDefault<z.ZodNumber>;
+  kick: z.ZodDefault<z.ZodNumber>;
+  ban: z.ZodDefault<z.ZodNumber>;
+  redact: z.ZodDefault<z.ZodNumber>;
+  notifications: z.ZodDefault<
+    z.ZodObject<{
+      room: z.ZodNumber;
+    }>
+  >;
+  events: z.ZodDefault<z.ZodRecord<z.ZodString, z.ZodNumber>>;
+  users: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodNumber>>;
+  creator_becomes: z.ZodOptional<z.ZodNumber>;
+  synapse_preset: z.ZodOptional<z.ZodString>;
+  default_visibility: z.ZodOptional<
+    z.ZodEnum<{
+      public: "public";
+      private: "private";
+    }>
+  >;
+  allow_is_direct: z.ZodOptional<z.ZodBoolean>;
+}> = z.object({
   name: z.string(),
   users_default: z.number().default(0),
   events_default: z.number().default(0),
@@ -330,7 +391,20 @@ const presetConfigSchema = z.object({
   allow_is_direct: z.boolean().optional(),
 });
 
-const createroomProxySchema = z.object({
+const createroomProxySchema: z.ZodObject<{
+  enabled: z.ZodDefault<z.ZodBoolean>;
+  on_failure: z.ZodPrefault<typeof createroomProxyFailureSchema>;
+  default_preset: z.ZodDefault<z.ZodString>;
+  encryption: z.ZodDefault<
+    z.ZodEnum<{
+      allowed: "allowed";
+      enforced: "enforced";
+      disabled: "disabled";
+    }>
+  >;
+  is_direct_mask: z.ZodDefault<typeof directChatMaskSchema>;
+  presets: z.ZodDefault<z.ZodArray<typeof presetConfigSchema>>;
+}> = z.object({
   enabled: z.boolean().default(DEFAULT_CREATEROOM_PROXY_ENABLED),
   on_failure: createroomProxyFailureSchema.prefault({}),
   default_preset: z.string().default(DEFAULT_CREATEROOM_PROXY_DEFAULT_PRESET),
@@ -345,7 +419,16 @@ const createroomProxySchema = z.object({
   presets: z.array(presetConfigSchema).default(DEFAULT_CREATEROOM_PROXY_PRESETS),
 });
 
-const corsSettingsSchema = z
+const corsSettingsSchema: z.ZodObject<{
+  enabled: z.ZodDefault<z.ZodBoolean>;
+  allow_no_origin: z.ZodDefault<z.ZodBoolean>;
+  origins: z.ZodDefault<z.ZodArray<z.ZodString>>;
+  credentials: z.ZodDefault<z.ZodBoolean>;
+  methods: z.ZodDefault<z.ZodArray<z.ZodString>>;
+  allowed_headers: z.ZodDefault<z.ZodArray<z.ZodString>>;
+  exposed_headers: z.ZodOptional<z.ZodArray<z.ZodString>>;
+  max_age: z.ZodOptional<z.ZodNumber>;
+}> = z
   .object({
     enabled: z.boolean().default(DEFAULT_CORS_ENABLED),
     allow_no_origin: z.boolean().default(DEFAULT_CORS_ALLOW_NO_ORIGIN),
@@ -387,7 +470,17 @@ const corsSettingsSchema = z
     }
   });
 
-const serverSettingsSchema = z.object({
+const serverSettingsSchema: z.ZodObject<{
+  name: z.ZodString;
+  base_url: z.ZodDefault<z.ZodString>;
+  host: z.ZodDefault<z.ZodString>;
+  port: z.ZodDefault<z.ZodNumber>;
+  trust_x_forwarded_for: z.ZodDefault<z.ZodBoolean>;
+  trusted_proxies: z.ZodDefault<z.ZodArray<z.ZodString>>;
+  additional_features: z.ZodDefault<z.ZodBoolean>;
+  enable_cron_jobs: z.ZodDefault<z.ZodBoolean>;
+  rate_limiting: z.ZodPrefault<typeof rateLimitingSchema>;
+}> = z.object({
   name: z.string(), // REQUIRED
   base_url: z.string().default(""),
   host: z.string().default(DEFAULT_HOST),
@@ -399,7 +492,13 @@ const serverSettingsSchema = z.object({
   rate_limiting: rateLimitingSchema.prefault({}),
 });
 
-const urlsSettingsSchema = z.object({
+const urlsSettingsSchema: z.ZodObject<{
+  signup: z.ZodDefault<z.ZodString>;
+  chat: z.ZodDefault<z.ZodString>;
+  auth: z.ZodDefault<z.ZodString>;
+  qr_code: z.ZodDefault<z.ZodString>;
+  invitation_redirect: z.ZodDefault<z.ZodString>;
+}> = z.object({
   signup: z.string().default(""),
   chat: z.string().default(""),
   auth: z.string().default(""),
@@ -407,29 +506,54 @@ const urlsSettingsSchema = z.object({
   invitation_redirect: z.string().default(""),
 });
 
-const synapseSettingsSchema = z.object({
+const synapseSettingsSchema: z.ZodObject<{
+  server_url: z.ZodDefault<z.ZodOptional<z.ZodURL>>;
+  internal_host: z.ZodDefault<z.ZodOptional<z.ZodString>>;
+  admin: z.ZodOptional<typeof synapseAdminSchema>;
+  database: z.ZodOptional<typeof databaseSettingsSchema>;
+}> = z.object({
   server_url: z.url().optional().default(""),
   internal_host: z.string().optional().default(""),
   admin: synapseAdminSchema.optional(),
   database: databaseSettingsSchema.optional(),
 });
 
-const hashSettingsSchema = z.object({
+const hashSettingsSchema: z.ZodObject<{
+  rate_limit: z.ZodDefault<z.ZodNumber>;
+  key_delay: z.ZodDefault<z.ZodNumber>;
+  keys_depth: z.ZodDefault<z.ZodNumber>;
+  pepper_cron: z.ZodDefault<z.ZodString>;
+}> = z.object({
   rate_limit: z.number().default(DEFAULT_HASH_RATE_LIMIT),
   key_delay: z.number().default(DEFAULT_HASH_KEY_DELAY),
   keys_depth: z.number().default(DEFAULT_HASH_KEYS_DEPTH),
   pepper_cron: z.string().default(DEFAULT_HASH_PEPPER_CRON),
 });
 
-const invitationsSettingsSchema = z.object({
+const invitationsSettingsSchema: z.ZodObject<{
+  server_name: z.ZodDefault<z.ZodString>;
+}> = z.object({
   server_name: z.string().default("matrix.to"),
 });
 
-const termsSettingsSchema = z.object({
+const termsSettingsSchema: z.ZodObject<{
+  policies: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
+}> = z.object({
   policies: z.record(z.string(), z.unknown()).optional(),
 });
 
-const emailSettingsSchema = z.object({
+const emailSettingsSchema: z.ZodObject<{
+  smtp_host: z.ZodDefault<z.ZodOptional<z.ZodString>>;
+  smtp_port: z.ZodDefault<z.ZodNumber>;
+  tls: z.ZodDefault<z.ZodBoolean>;
+  username: z.ZodOptional<z.ZodString>;
+  password: z.ZodOptional<z.ZodString>;
+  sender: z.ZodOptional<z.ZodString>;
+  sender_localpart: z.ZodDefault<z.ZodString>;
+  verify_certificate: z.ZodDefault<z.ZodBoolean>;
+  templates_dir: z.ZodDefault<z.ZodString>;
+  link_expiry: z.ZodDefault<z.ZodNumber>;
+}> = z.object({
   smtp_host: z.string().optional().default(""),
   smtp_port: z.number().int().default(DEFAULT_SMTP_PORT),
   tls: z.boolean().default(true),
@@ -442,7 +566,16 @@ const emailSettingsSchema = z.object({
   link_expiry: z.number().default(DEFAULT_LINK_EXPIRY),
 });
 
-const ldapSettingsSchema = z.object({
+const ldapSettingsSchema: z.ZodObject<{
+  uri: z.ZodOptional<z.ZodString>;
+  base: z.ZodOptional<z.ZodString>;
+  user: z.ZodOptional<z.ZodString>;
+  password: z.ZodOptional<z.ZodString>;
+  filter: z.ZodOptional<z.ZodString>;
+  uid_field: z.ZodDefault<z.ZodString>;
+  sync_cron: z.ZodDefault<z.ZodString>;
+  client_options: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
+}> = z.object({
   uri: z.string().optional(),
   base: z.string().optional(),
   user: z.string().optional(),
@@ -453,7 +586,16 @@ const ldapSettingsSchema = z.object({
   client_options: z.record(z.string(), z.unknown()).optional(),
 });
 
-const cacheSettingsSchema = z.object({
+const cacheSettingsSchema: z.ZodObject<{
+  engine: z.ZodDefault<
+    z.ZodEnum<{
+      memory: "memory";
+      redis: "redis";
+    }>
+  >;
+  ttl: z.ZodDefault<z.ZodNumber>;
+  redis_uri: z.ZodOptional<z.ZodString>;
+}> = z.object({
   engine: z
     .enum([
       "memory",
@@ -464,20 +606,36 @@ const cacheSettingsSchema = z.object({
   redis_uri: z.string().optional(),
 });
 
-const smsSettingsSchema = z.object({
+const smsSettingsSchema: z.ZodObject<{
+  api_url: z.ZodDefault<z.ZodURL>;
+  api_login: z.ZodOptional<z.ZodString>;
+  api_key: z.ZodOptional<z.ZodString>;
+}> = z.object({
   api_url: z.url().default(DEFAULT_SMS_API_URL),
   api_login: z.string().optional(),
   api_key: z.string().optional(),
 });
 
-const federationSettingsSchema = z.object({
+const federationSettingsSchema: z.ZodObject<{
+  is_federated_identity_service: z.ZodDefault<z.ZodBoolean>;
+  trusted_servers_addresses: z.ZodDefault<z.ZodArray<z.ZodString>>;
+  identity_services: z.ZodDefault<z.ZodArray<z.ZodString>>;
+  sync_cron: z.ZodDefault<z.ZodString>;
+}> = z.object({
   is_federated_identity_service: z.boolean().default(false),
   trusted_servers_addresses: z.array(z.string()).default([]),
   identity_services: z.array(z.string()).default([]),
   sync_cron: z.string().default(DEFAULT_FEDERATION_SYNC_CRON),
 });
 
-const jitsiSettingsSchema = z.object({
+const jitsiSettingsSchema: z.ZodObject<{
+  base_url: z.ZodDefault<z.ZodString>;
+  use_jwt: z.ZodDefault<z.ZodBoolean>;
+  jwt_secret: z.ZodOptional<z.ZodString>;
+  jwt_issuer: z.ZodOptional<z.ZodString>;
+  jwt_algorithm: z.ZodDefault<z.ZodString>;
+  preferred_domain: z.ZodOptional<z.ZodString>;
+}> = z.object({
   base_url: z.string().default(""),
   use_jwt: z.boolean().default(false),
   jwt_secret: z.string().optional(),
@@ -486,11 +644,31 @@ const jitsiSettingsSchema = z.object({
   preferred_domain: z.string().optional(),
 });
 
-const oidcSettingsSchema = z.object({
+const oidcSettingsSchema: z.ZodObject<{
+  issuer: z.ZodOptional<z.ZodString>;
+}> = z.object({
   issuer: z.string().optional(),
 });
 
-const twakeChatSettingsSchema = z.object({
+const twakeChatSettingsSchema: z.ZodObject<{
+  application_name: z.ZodDefault<z.ZodString>;
+  application_welcome_message: z.ZodDefault<z.ZodString>;
+  privacy_url: z.ZodDefault<z.ZodString>;
+  render_html: z.ZodDefault<z.ZodBoolean>;
+  hide_redacted_events: z.ZodDefault<z.ZodBoolean>;
+  hide_unknown_events: z.ZodDefault<z.ZodBoolean>;
+  issue_id: z.ZodDefault<z.ZodString>;
+  registration_url: z.ZodDefault<z.ZodString>;
+  twake_workplace_homeserver: z.ZodDefault<z.ZodString>;
+  app_grid_dashboard_available: z.ZodDefault<z.ZodBoolean>;
+  platform: z.ZodDefault<z.ZodString>;
+  default_max_upload_avatar_size_in_bytes: z.ZodDefault<z.ZodString>;
+  dev_mode: z.ZodDefault<z.ZodBoolean>;
+  qr_code_download_url: z.ZodDefault<z.ZodString>;
+  enable_logs: z.ZodDefault<z.ZodBoolean>;
+  support_url: z.ZodDefault<z.ZodString>;
+  enable_invitations: z.ZodDefault<z.ZodBoolean>;
+}> = z.object({
   application_name: z.string().default(DEFAULT_TWAKE_CHAT_APP_NAME),
   application_welcome_message: z.string().default(""),
   privacy_url: z.string().default(""),
@@ -510,7 +688,13 @@ const twakeChatSettingsSchema = z.object({
   enable_invitations: z.boolean().default(false),
 });
 
-const featuresSettingsSchema = z.object({
+const featuresSettingsSchema: z.ZodObject<{
+  common_settings: z.ZodPrefault<typeof commonSettingsSchema>;
+  matrix_profile_updates_allowed: z.ZodDefault<z.ZodBoolean>;
+  user_profile: z.ZodPrefault<typeof userProfileSchema>;
+  user_directory: z.ZodPrefault<typeof userDirectorySchema>;
+  createroom_proxy: z.ZodOptional<typeof createroomProxySchema>;
+}> = z.object({
   common_settings: commonSettingsSchema.prefault({}),
   matrix_profile_updates_allowed: z.boolean().default(true),
   user_profile: userProfileSchema.prefault({}),
@@ -519,88 +703,164 @@ const featuresSettingsSchema = z.object({
 });
 
 // Required modules (No prefault!)
-const serverConfigSchema = z.object({
+const serverConfigSchema: z.ZodObject<{
+  server: typeof serverSettingsSchema;
+}> = z.object({
   server: serverSettingsSchema,
 });
-const synapseConfigSchema = z.object({
+const synapseConfigSchema: z.ZodObject<{
+  synapse: z.ZodPrefault<typeof synapseSettingsSchema>;
+}> = z.object({
   synapse: synapseSettingsSchema.prefault({}),
 });
-const databaseConfigSchema = z.object({
+const databaseConfigSchema: z.ZodObject<{
+  database: typeof databaseSettingsSchema;
+}> = z.object({
   database: databaseSettingsSchema,
 });
-const emailConfigSchema = z.object({
+const emailConfigSchema: z.ZodObject<{
+  email: z.ZodPrefault<typeof emailSettingsSchema>;
+}> = z.object({
   email: emailSettingsSchema.prefault({}),
 });
 
 // Optional modules (Prefault passes empty object down)
-const urlsConfigSchema = z.object({
+const urlsConfigSchema: z.ZodObject<{
+  urls: z.ZodPrefault<typeof urlsSettingsSchema>;
+}> = z.object({
   urls: urlsSettingsSchema.prefault({}),
 });
-const hashConfigSchema = z.object({
+const hashConfigSchema: z.ZodObject<{
+  hash: z.ZodPrefault<typeof hashSettingsSchema>;
+}> = z.object({
   hash: hashSettingsSchema.prefault({}),
 });
-const invitationsConfigSchema = z.object({
+const invitationsConfigSchema: z.ZodObject<{
+  invitations: z.ZodPrefault<typeof invitationsSettingsSchema>;
+}> = z.object({
   invitations: invitationsSettingsSchema.prefault({}),
 });
-const termsConfigSchema = z.object({
+const termsConfigSchema: z.ZodObject<{
+  terms: z.ZodPrefault<typeof termsSettingsSchema>;
+}> = z.object({
   terms: termsSettingsSchema.prefault({}),
 });
-const ldapConfigSchema = z.object({
+const ldapConfigSchema: z.ZodObject<{
+  ldap: z.ZodPrefault<typeof ldapSettingsSchema>;
+}> = z.object({
   ldap: ldapSettingsSchema.prefault({}),
 });
-const cacheConfigSchema = z.object({
+const cacheConfigSchema: z.ZodObject<{
+  cache: z.ZodPrefault<typeof cacheSettingsSchema>;
+}> = z.object({
   cache: cacheSettingsSchema.prefault({}),
 });
-const smsConfigSchema = z.object({
+const smsConfigSchema: z.ZodObject<{
+  sms: z.ZodPrefault<typeof smsSettingsSchema>;
+}> = z.object({
   sms: smsSettingsSchema.prefault({}),
 });
-const federationConfigSchema = z.object({
+const federationConfigSchema: z.ZodObject<{
+  federation: z.ZodPrefault<typeof federationSettingsSchema>;
+}> = z.object({
   federation: federationSettingsSchema.prefault({}),
 });
-const jitsiConfigSchema = z.object({
+const jitsiConfigSchema: z.ZodObject<{
+  jitsi: z.ZodPrefault<typeof jitsiSettingsSchema>;
+}> = z.object({
   jitsi: jitsiSettingsSchema.prefault({}),
 });
-const oidcConfigSchema = z.object({
+const oidcConfigSchema: z.ZodObject<{
+  oidc: z.ZodPrefault<typeof oidcSettingsSchema>;
+}> = z.object({
   oidc: oidcSettingsSchema.prefault({}),
 });
-const twakeChatConfigSchema = z.object({
+const twakeChatConfigSchema: z.ZodObject<{
+  twake_chat: z.ZodPrefault<typeof twakeChatSettingsSchema>;
+}> = z.object({
   twake_chat: twakeChatSettingsSchema.prefault({}),
 });
-const featuresConfigSchema = z.object({
+const featuresConfigSchema: z.ZodObject<{
+  features: z.ZodPrefault<typeof featuresSettingsSchema>;
+}> = z.object({
   features: featuresSettingsSchema.prefault({}),
 });
 
-const loggerConfigSchema = z.object({
+const loggerConfigSchema: z.ZodObject<{
+  logger: z.ZodPrefault<typeof loggerSettingsSchema>;
+}> = z.object({
   logger: loggerSettingsSchema.prefault({}),
 });
-const i18nConfigSchema = z.object({
+const i18nConfigSchema: z.ZodObject<{
+  i18n: z.ZodPrefault<typeof i18nSettingsSchema>;
+}> = z.object({
   i18n: i18nSettingsSchema.prefault({}),
 });
-const telemetryConfigSchema = z.object({
+const telemetryConfigSchema: z.ZodObject<{
+  telemetry: z.ZodPrefault<typeof telemetrySettingsSchema>;
+}> = z.object({
   telemetry: telemetrySettingsSchema.prefault({}),
 });
 
-const corsConfigSchema = z.object({
+const corsConfigSchema: z.ZodObject<{
+  cors: z.ZodPrefault<typeof corsSettingsSchema>;
+}> = z.object({
   cors: corsSettingsSchema.prefault({}),
 });
 
-const landingConfigSchema = z.object({
+const landingConfigSchema: z.ZodObject<{
+  landing: z.ZodPrefault<typeof landingSettingsSchema>;
+}> = z.object({
   landing: landingSettingsSchema.prefault({}),
 });
 
-const wellKnownConfigSchema = z.object({
+const wellKnownConfigSchema: z.ZodObject<{
+  well_known: z.ZodPrefault<typeof wellKnownSettingsSchema>;
+}> = z.object({
   well_known: wellKnownSettingsSchema.prefault({}),
 });
 
-const authConfigSchema = z.object({
+const authConfigSchema: z.ZodObject<{
+  auth: z.ZodPrefault<typeof authSettingsSchema>;
+}> = z.object({
   auth: authSettingsSchema.prefault({}),
 });
 
-const visioConfigSchema = z.object({
+const visioConfigSchema: z.ZodObject<{
+  visio: z.ZodPrefault<typeof visioSettingsSchema>;
+}> = z.object({
   visio: visioSettingsSchema.prefault({}),
 });
 
-export const configSchema = z.object({
+// Keep the public declaration exact without asking isolatedDeclarations to
+// serialize the inference of every nested Zod constructor. Each intersection
+// retains the concrete field schemas (including defaults and prefault input).
+type ConfigShape = typeof serverConfigSchema.shape &
+  typeof corsConfigSchema.shape &
+  typeof urlsConfigSchema.shape &
+  typeof synapseConfigSchema.shape &
+  typeof databaseConfigSchema.shape &
+  typeof hashConfigSchema.shape &
+  typeof invitationsConfigSchema.shape &
+  typeof termsConfigSchema.shape &
+  typeof emailConfigSchema.shape &
+  typeof ldapConfigSchema.shape &
+  typeof cacheConfigSchema.shape &
+  typeof smsConfigSchema.shape &
+  typeof federationConfigSchema.shape &
+  typeof jitsiConfigSchema.shape &
+  typeof oidcConfigSchema.shape &
+  typeof twakeChatConfigSchema.shape &
+  typeof featuresConfigSchema.shape &
+  typeof loggerConfigSchema.shape &
+  typeof i18nConfigSchema.shape &
+  typeof telemetryConfigSchema.shape &
+  typeof landingConfigSchema.shape &
+  typeof wellKnownConfigSchema.shape &
+  typeof authConfigSchema.shape &
+  typeof visioConfigSchema.shape;
+
+export const configSchema: z.ZodObject<ConfigShape> = z.object({
   ...serverConfigSchema.shape,
   ...corsConfigSchema.shape,
   ...urlsConfigSchema.shape,

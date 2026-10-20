@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-type-assertion */
 /* eslint-disable @typescript-eslint/dot-notation */
-import { afterEach, beforeEach, describe, expect, it, mock, spyOn, test, vi } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it, mock, spyOn, test, vi, type Mock } from 'bun:test'
 import AdminService from '../services'
 import conf from '../../../defaultConfig.json'
 
@@ -41,8 +41,20 @@ describe('AdminService', () => {
         'Failed to get access token'
       )
       expect(logger.error).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to get access token'),
-        expect.any(Object)
+        expect.stringContaining('Failed to get access token')
+      )
+    })
+
+    it('does not leak an admin credential from an upstream failure', async () => {
+      const sensitiveCredential = 'admin-api-token-do-not-log-974'
+      spyOn(service['tokenService'], 'getAccessTokenWithCreds')
+        .mockRejectedValue(new Error(sensitiveCredential))
+
+      await expect(service['_getAdminAccessToken']()).rejects.toThrow(
+        'Failed to get access token'
+      )
+      expect(JSON.stringify(logger.error.mock.calls)).not.toContain(
+        sensitiveCredential
       )
     })
 
@@ -105,6 +117,20 @@ describe('AdminService', () => {
   })
 
   describe('makeRequestWithAdminToken', () => {
+    it('does not expose an endpoint query token in the retry-exhaustion error', async () => {
+      const secret = 'admin-query-token-secret-493'
+      spyOn(service as any, '_getCachedToken').mockResolvedValue('token')
+      spyOn(service as any, '_doFetch').mockResolvedValue({ status: 401 } as any)
+
+      let message = ''
+      try {
+        await service.makeRequestWithAdminToken(`https://matrix.example.com/?token=${secret}`, {}, 0)
+      } catch (error) {
+        message = error instanceof Error ? error.message : String(error)
+      }
+      expect(message).toContain('failed after 1 attempts')
+      expect(message).not.toContain(secret)
+    })
     it('returns response if status != 401', async () => {
       spyOn(service as any, '_getCachedToken').mockResolvedValue('token')
       spyOn(service as any, '_doFetch')
@@ -129,10 +155,62 @@ describe('AdminService', () => {
   })
 
   describe('_fetchAndUploadAvatar', () => {
+    it('rejects local metadata and non-HTTPS avatar URLs before making any request', async () => {
+      const outgoing = spyOn(global, 'fetch').mockResolvedValue({ ok: true } as any)
+      for (const url of [
+        'http://169.254.169.254/latest/meta-data/',
+        'http://avatar.example.com/photo.png',
+        'https://127.0.0.1:8443/internal',
+        'https://[::1]/internal',
+        'https://localhost/admin',
+        'https://user:password@avatar.example.com/avatar.png'
+      ]) {
+        await expect(service['_fetchAndUploadAvatar'](url))
+          .rejects.toThrow('Avatar source not permitted')
+      }
+      expect(outgoing).not.toHaveBeenCalled()
+    })
+
+    it('rejects redirecting avatar providers before following their Location', async () => {
+      const response = new Response(null, {
+        status: 302,
+        headers: { Location: 'http://127.0.0.1/private' }
+      })
+      const outgoing = spyOn(global, 'fetch').mockResolvedValueOnce(response)
+      await expect(service['_fetchAndUploadAvatar']('https://avatar.example.com/img.png'))
+        .rejects.toThrow()
+      expect(outgoing).toHaveBeenCalledTimes(1)
+      expect(outgoing).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ redirect: 'error' })
+      )
+    })
+
+    it('bounds avatar download size even if the remote response omits Content-Length', async () => {
+      const chunks = [new Uint8Array(3 * 1024 * 1024), new Uint8Array(3 * 1024 * 1024)]
+      const stream = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          const chunk = chunks.shift()
+          if (chunk) controller.enqueue(chunk)
+          else controller.close()
+        }
+      })
+      spyOn(global, 'fetch').mockResolvedValueOnce(new Response(stream))
+      await expect(service['_fetchAndUploadAvatar']('https://avatar.example.com/img.png'))
+        .rejects.toThrow('Avatar file too large')
+    })
+    it('does not log the sensitive avatar URL during a fetch failure', async () => {
+      const secret = 'private-avatar-query-secret-493'
+      spyOn(global, 'fetch').mockRejectedValueOnce(new Error('upstream failure'))
+      await expect(service['_fetchAndUploadAvatar'](`https://avatar.example.com/?token=${secret}`))
+        .rejects.toThrow()
+      expect(Bun.inspect(logger.info.mock.calls)).not.toContain(secret)
+      expect(Bun.inspect(logger.error.mock.calls)).not.toContain(secret)
+    })
     it('uploads avatar and returns MXC URL', async () => {
       const fakeMxc = 'mxc://example/avatar'
       const bufferMock = Buffer.from('test')
-      const fetchResp: any = { ok: true, arrayBuffer: async () => bufferMock }
+      const fetchResp: any = new Response(bufferMock)
       const uploadResp: any = {
         ok: true,
         json: async () => ({ content_uri: fakeMxc })
@@ -143,7 +221,7 @@ describe('AdminService', () => {
         .mockResolvedValueOnce(uploadResp as any)
 
       const mxc = await service['_fetchAndUploadAvatar'](
-        'http://avatar.url/img.png'
+        'https://avatar.example.com/img.png'
       )
       expect(mxc).toBe(fakeMxc)
     })
@@ -155,26 +233,31 @@ describe('AdminService', () => {
         statusText: 'ERR'
       } as any)
       await expect(
-        service['_fetchAndUploadAvatar']('http://avatar.url')
+        service['_fetchAndUploadAvatar']('https://avatar.example.com')
       ).rejects.toThrow('Failed to fetch avatar: 500 ERR')
       expect(logger.error).toHaveBeenCalledWith(
-        expect.stringContaining('Avatar upload failed'),
-        expect.any(Object)
+        expect.stringContaining('Avatar upload failed')
       )
     })
   })
 
   describe('updateUserInformation', () => {
+    it('does not log personal profile fields on successful update', async () => {
+      const secret = 'private-user-id-493'
+      const name = 'Private Display Name 493'
+      spyOn(service, 'makeRequestWithAdminToken')
+        .mockResolvedValue({ ok: true, json: async () => ({}) } as any)
+      await service.updateUserInformation(secret, { displayName: name })
+      expect(Bun.inspect(logger.info.mock.calls)).not.toContain(secret)
+      expect(Bun.inspect(logger.info.mock.calls)).not.toContain(name)
+    })
     it('sends displayName only if no avatarUrl', async () => {
       spyOn(service, 'makeRequestWithAdminToken')
         .mockResolvedValue({ ok: true, json: async () => ({}) } as any)
 
       await service.updateUserInformation('user1', { displayName: 'Alice' })
 
-      expect(logger.info).toHaveBeenCalledWith(
-        expect.stringContaining('Updating user user1 profile with'),
-        { displayname: 'Alice' }
-      )
+      expect(logger.info).toHaveBeenCalledWith('Updating user profile')
     })
 
     it('sends displayName and avatar_url if avatarUrl provided', async () => {
@@ -188,10 +271,7 @@ describe('AdminService', () => {
         avatarUrl: 'http://avatar.url'
       })
 
-      expect(logger.info).toHaveBeenCalledWith(
-        expect.stringContaining('Updating user user1 profile with'),
-        { displayname: 'Alice', avatar_url: mxc }
-      )
+      expect(logger.info).toHaveBeenCalledWith('Updating user profile')
     })
 
     it('throws if makeRequestWithAdminToken fails', async () => {

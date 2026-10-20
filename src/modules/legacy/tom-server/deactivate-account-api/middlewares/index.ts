@@ -3,6 +3,7 @@ import type { IdeactivateUserMiddleware } from '../types'
 import type { Request, Response, NextFunction } from 'express'
 import type { Config } from '../../types'
 import type { TwakeLogger } from '../../../logger/index'
+import { createHash, timingSafeEqual } from 'node:crypto'
 
 export default class DeactivateUserMiddleware
   implements IdeactivateUserMiddleware
@@ -20,10 +21,22 @@ export default class DeactivateUserMiddleware
    * @param {Response} res - the response
    * @param {NextFunction} next - the next function
    */
-  checkAccessToken = (req: Request, res: Response, next: NextFunction) => {
+  checkAccessToken = (req: Request, res: Response, next: NextFunction): void => {
     const accessToken = req.headers?.['x-access-token']
+    const expected = this.config.admin_access_token
 
-    if (!accessToken || accessToken !== this.config.admin_access_token) {
+    if (typeof expected !== 'string' || expected.trim().length === 0) {
+      this.logger.error('Account deactivation authentication is not configured')
+      res.status(503).json({ message: 'Account deactivation unavailable' })
+      return
+    }
+
+    const matches = typeof accessToken === 'string' &&
+      timingSafeEqual(
+        createHash('sha256').update(accessToken).digest(),
+        createHash('sha256').update(expected).digest()
+      )
+    if (!matches) {
       this.logger.error('Unauthorized: invalid or missing access_token')
       res.status(401).json({ message: 'Unauthorized' })
       return
@@ -39,7 +52,7 @@ export default class DeactivateUserMiddleware
    * @param {Response} res - the response
    * @param {NextFunction} next - the next function
    */
-  checkUserExists = async (req: Request, res: Response, next: NextFunction) => {
+  checkUserExists = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const userId = req.params?.id
 
     if (!userId) {
@@ -48,34 +61,41 @@ export default class DeactivateUserMiddleware
       return
     }
 
-    const erasedUserQueryResult = await this.db.get('erased_users', ['*'], {
-      user_id: userId
-    })
+    try {
+      const erasedUserQueryResult = await this.db.get('erased_users', ['*'], {
+        user_id: userId
+      })
 
-    if (erasedUserQueryResult.length) {
-      this.logger.error('User is already marked as erased')
-      res.status(400).json({ message: 'User is already erased' })
-      return
+      if (erasedUserQueryResult.length) {
+        this.logger.error('User is already marked as erased')
+        res.status(400).json({ message: 'User is already erased' })
+        return
+      }
+
+      const fetchUserQueryResult = await this.db.get('users', ['deactivated'], {
+        name: userId
+      })
+
+      if (!fetchUserQueryResult.length) {
+        this.logger.error('User not found')
+        res.status(404).json({ message: 'User not found' })
+        return
+      }
+
+      const user = fetchUserQueryResult[0]
+
+      if (user?.deactivated === 1) {
+        this.logger.error('User is already deactivated')
+        res.status(400).json({ message: 'User is already deactivated' })
+        return
+      }
+
+      next()
+    } catch {
+      // Database failures can contain credentials or user identifiers.
+      // Never leak their details through HTTP or diagnostic logging.
+      this.logger.error('Account deactivation lookup failed')
+      res.status(503).json({ message: 'Account lookup unavailable' })
     }
-
-    const fetchUserQueryResult = await this.db.get('users', ['deactivated'], {
-      name: userId
-    })
-
-    if (!fetchUserQueryResult.length) {
-      this.logger.error('User not found')
-      res.status(404).json({ message: 'User not found' })
-      return
-    }
-
-    const user = fetchUserQueryResult[0]
-
-    if (user.deactivated === 1) {
-      this.logger.error('User is already deactivated')
-      res.status(400).json({ message: 'User is already deactivated' })
-      return
-    }
-
-    next()
   }
 }

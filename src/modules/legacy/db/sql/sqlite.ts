@@ -49,16 +49,14 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         reject(new Error("DB not ready"));
         return;
       }
-      this.logger.debug("[SQLite][rawQuery] Executing query", { query });
+      // The raw query may contain inline secrets, never log its text.
+      this.logger.debug("[SQLite][rawQuery] Executing query");
       this.db.run(query, (err) => {
         if (err === null || err === undefined) {
-          this.logger.debug("[SQLite][rawQuery] Query successful", { query });
+          this.logger.debug("[SQLite][rawQuery] Query successful");
           resolve();
         } else {
-          this.logger.error("[SQLite][rawQuery] Query failed", {
-            query,
-            error: err,
-          });
+          this.logger.error("[SQLite][rawQuery] Query failed");
           reject(err);
         }
       });
@@ -79,9 +77,9 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
       }
       const names: string[] = [];
       const vals: Array<string | number> = [];
-      Object.keys(values).forEach((k) => {
+      Object.entries(values).forEach(([k, v]) => {
         names.push(k);
-        vals.push(values[k]);
+        vals.push(v);
       });
       const query = `INSERT INTO ${table}(${names.join(",")}) VALUES(${names.map((_v) => "?").join(",")}) RETURNING *;`;
       this.logger.debug("[SQLite][insert] Executing", {
@@ -93,13 +91,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
       stmt.all(vals, (err: string, rows: Array<Record<string, string | number>>) => {
         /* istanbul ignore if */
         if (err !== null && err !== undefined) {
-          this.logger.error("[SQLite][insert] Failed", {
-            table,
-            fields: names,
-            values: vals,
-            query,
-            error: err,
-          });
+          this.logger.error("[SQLite][insert] Failed");
           reject(err);
         } else {
           this.logger.debug("[SQLite][insert] Successful", {
@@ -111,10 +103,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
       });
       stmt.finalize((err) => {
         if (err) {
-          this.logger.error("[SQLite][insert] Statement finalize failed", {
-            table,
-            error: err,
-          });
+          this.logger.error("[SQLite][insert] Statement finalize failed");
           reject(err);
         }
       });
@@ -135,9 +124,9 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
       }
       const names: string[] = [];
       const vals: Array<string | number> = [];
-      Object.keys(values).forEach((k) => {
+      Object.entries(values).forEach(([k, v]) => {
         names.push(k);
-        vals.push(values[k]);
+        vals.push(v);
       });
       vals.push(value);
       const query = `UPDATE ${table} SET ${names.join("=?,")}=? WHERE ${field}=? RETURNING *;`;
@@ -151,13 +140,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
       stmt.all(vals, (err: string, rows: Array<Record<string, string | number>>) => {
         /* istanbul ignore if */
         if (err !== null && err !== undefined) {
-          this.logger.error("[SQLite][update] Failed", {
-            table,
-            fields: names,
-            whereField: field,
-            query,
-            error: err,
-          });
+          this.logger.error("[SQLite][update] Failed");
           reject(err);
         } else {
           this.logger.debug("[SQLite][update] Successful", {
@@ -169,10 +152,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
       });
       stmt.finalize((err) => {
         if (err) {
-          this.logger.error("[SQLite][update] Statement finalize failed", {
-            table,
-            error: err,
-          });
+          this.logger.error("[SQLite][update] Statement finalize failed");
           reject(err);
         }
       });
@@ -287,9 +267,11 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
                 filterFields[key].toString() !== [].toString(),
             )
             .forEach((key) => {
+              const filterValue = filterFields[key];
+              if (filterValue == null) return;
               localCondition += localCondition !== "" ? " AND " : "";
-              if (Array.isArray(filterFields[key])) {
-                localCondition += `(${(filterFields[key] as Array<string | number>)
+              if (Array.isArray(filterValue)) {
+                localCondition += `(${filterValue
                   .map((val) => {
                     index++;
                     values.push(val.toString());
@@ -298,7 +280,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
                   .join(" OR ")})`;
               } else {
                 index++;
-                values.push(filterFields[key].toString());
+                values.push(filterValue.toString());
                 localCondition += `${key}${op}$${index}`;
               }
             });
@@ -335,23 +317,12 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         if (order) condition += ` ORDER BY ${order}`;
 
         const query = `SELECT ${fields.join(",")} FROM ${tables.join(",")} ${condition}`;
-        this.logger.debug("[SQLite][_get] Executing SELECT", {
-          tables,
-          fields,
-          condition,
-          query,
-        });
+        this.logger.debug("[SQLite][_get] Executing SELECT");
         const stmt = this.db.prepare(query);
         stmt.all(values, (err: string, rows: Array<Record<string, string | number>>) => {
           /* istanbul ignore if */
           if (err !== null && err !== undefined) {
-            this.logger.error("[SQLite][_get] SELECT failed", {
-              tables,
-              fields,
-              condition,
-              query,
-              error: err,
-            });
+            this.logger.error("[SQLite][_get] SELECT failed");
             reject(err);
           } else {
             this.logger.debug("[SQLite][_get] SELECT successful", {
@@ -363,10 +334,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         });
         stmt.finalize((err) => {
           if (err) {
-            this.logger.error("[SQLite][_get] Statement finalize failed", {
-              tables,
-              error: err,
-            });
+            this.logger.error("[SQLite][_get] Statement finalize failed");
             reject(err);
           }
         });
@@ -537,9 +505,11 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
                 filterFields[key].toString() !== [].toString(),
             )
             .forEach((key) => {
+              const filterValue = filterFields[key];
+              if (filterValue == null) return;
               localCondition += localCondition !== "" ? " AND " : "";
-              if (Array.isArray(filterFields[key])) {
-                localCondition += `(${(filterFields[key] as Array<string | number>)
+              if (Array.isArray(filterValue)) {
+                localCondition += `(${filterValue
                   .map((val) => {
                     index++;
                     values.push(val.toString());
@@ -548,7 +518,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
                   .join(" OR ")})`;
               } else {
                 index++;
-                values.push(filterFields[key].toString());
+                values.push(filterValue.toString());
                 localCondition += `${key}${op}$${index}`;
               }
             });
@@ -584,25 +554,12 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         )}, ${minmax}(${targetField}) AS max_${targetFieldAlias} FROM ${tables.join(
           ",",
         )} ${condition} HAVING COUNT(*) > 0`; // HAVING COUNT(*) > 0 is to avoid returning a row with NULL values
-        this.logger.debug(`Executing ${minmax} query`, {
-          tables,
-          targetField,
-          fields,
-          condition,
-          query,
-        });
+        this.logger.debug(`Executing ${minmax} query`);
         const stmt = this.db.prepare(query);
         stmt.all(values, (err: string, rows: Array<Record<string, string | number>>) => {
           /* istanbul ignore if */
           if (err !== null && err !== undefined) {
-            this.logger.error(`${minmax} query failed`, {
-              tables,
-              targetField,
-              fields,
-              condition,
-              query,
-              error: err,
-            });
+            this.logger.error(`${minmax} query failed`);
             reject(err);
           } else {
             this.logger.debug(`${minmax} query successful`, {
@@ -614,10 +571,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         });
         stmt.finalize((err) => {
           if (err) {
-            this.logger.error(`${minmax} statement finalize failed`, {
-              tables,
-              error: err,
-            });
+            this.logger.error(`${minmax} statement finalize failed`);
             reject(err);
           }
         });
@@ -737,24 +691,12 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         let condition = searchFields.map((f) => `${f} LIKE ?`).join(" OR ");
         if (order) condition += ` ORDER BY ${order}`;
         const query = `SELECT ${fields.join(",")} FROM ${table} WHERE ${condition}`;
-        this.logger.debug("[SQLite][match] Executing LIKE query", {
-          table,
-          searchFields,
-          value,
-          fields,
-          query,
-        });
+        this.logger.debug("[SQLite][match] Executing LIKE query");
         const stmt = this.db.prepare(query);
         stmt.all(values, (err: string, rows: Array<Record<string, string | number>>) => {
           /* istanbul ignore if */
           if (err !== null && err !== undefined) {
-            this.logger.error("[SQLite][match] Query failed", {
-              table,
-              searchFields,
-              value,
-              query,
-              error: err,
-            });
+            this.logger.error("[SQLite][match] Query failed");
             reject(err);
           } else {
             this.logger.debug("[SQLite][match] Query successful", {
@@ -766,10 +708,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         });
         stmt.finalize((err) => {
           if (err) {
-            this.logger.error("[SQLite][match] Statement finalize failed", {
-              table,
-              error: err,
-            });
+            this.logger.error("[SQLite][match] Statement finalize failed");
             reject(err);
           }
         });
@@ -797,12 +736,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         stmt.all([value], (err, _rows) => {
           /* istanbul ignore if */
           if (err !== null && err !== undefined) {
-            this.logger.error("DELETE failed", {
-              table,
-              field,
-              query,
-              error: err,
-            });
+            this.logger.error("DELETE failed");
             reject(err);
           } else {
             this.logger.debug("[SQLite][deleteEqual] Successful", {
@@ -814,10 +748,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         });
         stmt.finalize((err) => {
           if (err) {
-            this.logger.error("[SQLite][deleteEqual] Statement finalize failed", {
-              table,
-              error: err,
-            });
+            this.logger.error("[SQLite][deleteEqual] Statement finalize failed");
             reject(err);
           }
         });
@@ -852,12 +783,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         stmt.all([condition1.value, condition2.value], (err, _rows) => {
           /* istanbul ignore if */
           if (err !== null && err !== undefined) {
-            this.logger.error("[SQLite][deleteEqualAnd] Failed", {
-              table,
-              conditions: [condition1.field, condition2.field],
-              query,
-              error: err,
-            });
+            this.logger.error("[SQLite][deleteEqualAnd] Failed");
             reject(err);
           } else {
             this.logger.debug("[SQLite][deleteEqualAnd] Successful", {
@@ -868,7 +794,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         });
         stmt.finalize((err) => {
           if (err) {
-            this.logger.error("DELETE with AND conditions statement finalize failed", { table, error: err });
+            this.logger.error("DELETE with AND conditions statement finalize failed");
             reject(err);
           }
         });
@@ -947,12 +873,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         }
 
         const query = `DELETE FROM ${table} WHERE ${condition}`;
-        this.logger.debug("[SQLite][deleteWhere] Executing", {
-          table,
-          conditions: filters,
-          operators,
-          query,
-        });
+        this.logger.debug("[SQLite][deleteWhere] Executing");
         const stmt = this.db.prepare(query);
 
         stmt.all(
@@ -960,14 +881,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
           (err: string) => {
             /* istanbul ignore if */
             if (err !== null && err !== undefined) {
-              this.logger.error("[SQLite][deleteWhere] Failed", {
-                table,
-                conditions: filters,
-                operators,
-                values,
-                query,
-                error: err,
-              });
+              this.logger.error("[SQLite][deleteWhere] Failed");
               reject(err);
             } else {
               this.logger.debug("[SQLite][deleteWhere] Successful", {
@@ -979,7 +893,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         );
         stmt.finalize((err) => {
           if (err) {
-            this.logger.error("DELETE with WHERE conditions statement finalize failed", { table, error: err });
+            this.logger.error("DELETE with WHERE conditions statement finalize failed");
             reject(err);
           }
         });

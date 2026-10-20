@@ -2,9 +2,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, mock, spyOn, tes
 import express from 'express'
 import fs from 'fs'
 import path from 'path'
+import os from 'os'
 import request, { type Response } from 'supertest'
 import TwakeServer from '..'
-import JEST_PROCESS_ROOT_PATH from '../../jest.globals'
 import { type Config } from '../types'
 import buildTokenTable from './__testData__/buildTokenTable'
 import defaultConfig from './__testData__/config.json'
@@ -13,8 +13,10 @@ const fetchMock = mock()
 mock.module('node-fetch', () => ({ default: fetchMock }))
 
 const endpoint = '/_twake/recoveryWords'
-const testFilePath = path.join(JEST_PROCESS_ROOT_PATH, 'vault.db')
-const matrixTestFilePath = path.join(JEST_PROCESS_ROOT_PATH, 'matrix.db')
+// Never reuse the databases left by another test worker or a previous failed run.
+const testDbDir = fs.mkdtempSync(path.join(os.tmpdir(), 'twake-vault-test-'))
+const testFilePath = path.join(testDbDir, 'vault.db')
+const matrixTestFilePath = path.join(testDbDir, 'matrix.db')
 
 const words = 'This is a test sentence'
 const accessToken =
@@ -27,7 +29,10 @@ const unsavedToken = accessToken.replace('accessToken', 'unsavedToken')
 const unsavedToken2 = accessToken.replace('accessToken', 'unsavedT2ken')
 
 const matrixServerResponseBody = {
-  user_id: 'test',
+  // Tokens absent from the seeded table must authenticate a *different*
+  // Matrix account. Sharing the seeded account silently couples tests through
+  // its existing recoveryWords row and causes false success/SQLite conflicts.
+  user_id: '@unsaved:example.org',
   is_guest: 'test',
   device_id: 'test'
 }
@@ -103,19 +108,26 @@ describe('Vault API server', () => {
 
   beforeEach(() => {
     fetchMock.mockResolvedValue({
+      ok: true,
       json: mock().mockResolvedValue(matrixServerResponseBody)
     })
     mock.clearAllMocks()
   })
 
-  afterAll(() => {
-    if (fs.existsSync(testFilePath)) {
-      fs.unlinkSync(testFilePath)
-    }
-    if (fs.existsSync(matrixTestFilePath)) {
-      fs.unlinkSync(matrixTestFilePath)
-    }
+  afterAll(async () => {
+    // Close application SQLite handles before attempting filesystem cleanup.
     vaultApiServer.cleanJobs()
+    // sqlite3 closes asynchronously; on Windows unlink can race its file handles.
+    // Retry only transient locking, but fail if cleanup never succeeds.
+    for (let attempt = 0; attempt < 50; attempt += 1) {
+      try {
+        fs.rmSync(testDbDir, { recursive: true })
+        return
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'EBUSY' || attempt === 49) throw error
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+    }
   })
 
   it('reject unimplemented endpoint with 404', async () => {
@@ -250,7 +262,7 @@ describe('Vault API server', () => {
     })
   })
 
-  it('should reject if more than 100 requests are done in less than 10 seconds on get words', { timeout: 20000 }, async () => {
+  it('should reject if more than 100 requests are done in less than 10 seconds on get words', async () => {
     let response
     let token
     // eslint-disable-next-line @typescript-eslint/no-for-in-array, @typescript-eslint/no-unused-vars
@@ -260,9 +272,9 @@ describe('Vault API server', () => {
     }
     expect((response as Response).statusCode).toEqual(429)
     await new Promise((resolve) => setTimeout(resolve, 11000))
-  })
+  }, 20000)
 
-  it('should reject if more than 100 requests are done in less than 10 seconds on post words', { timeout: 20000 }, async () => {
+  it('should reject if more than 100 requests are done in less than 10 seconds on post words', async () => {
     let response
     let token
     // eslint-disable-next-line @typescript-eslint/no-for-in-array, @typescript-eslint/no-unused-vars
@@ -275,7 +287,7 @@ describe('Vault API server', () => {
     }
     expect((response as Response).statusCode).toEqual(429)
     await new Promise((resolve) => setTimeout(resolve, 11000))
-  })
+  }, 20000)
 
   const removeUserInAccessTokenTable = async (
     accessToken: string

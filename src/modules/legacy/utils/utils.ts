@@ -6,7 +6,7 @@ import type { TwakeLogger } from '../logger/index';
 import type { NextFunction, Request, Response } from "express";
 import { errMsg } from "./errors";
 
-export const hostnameRe =
+export const hostnameRe: RegExp =
   /^((([a-zA-Z0-9][-a-zA-Z0-9]*)?[a-zA-Z0-9])[.])*([a-zA-Z][-a-zA-Z0-9]*[a-zA-Z0-9]|[a-zA-Z])(:(\d+))?$/;
 
 export type expressAppHandler = (
@@ -29,18 +29,33 @@ export const send = (res: Response | http.ServerResponse, status: number, body: 
   res.end();
 };
 
+export const MAX_JSON_CONTENT_BYTES: number = 1024 * 1024;
+
 export const jsonContent = (
   req: Request | http.IncomingMessage,
   res: Response | http.ServerResponse,
   logger: TwakeLogger,
   callback: (obj: Record<string, string>) => void,
 ): void => {
-  let content = "";
-  let accept = true;
+  let content: string | object = "";
+  let receivedBytes = 0;
+  // Decode only after the complete byte sequence is received. TCP chunks
+  // may split a UTF-8 code point; per-chunk toString() silently corrupts it.
+  const rawChunks: Buffer[] = [];
+  let finished = false;
   const end = (): void => {
+    if (finished) return;
+    finished = true;
     let obj;
     try {
+      if (rawChunks.length > 0) {
+        content = new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(rawChunks, receivedBytes));
+      }
       if (typeof content === "string") {
+        if (Buffer.byteLength(content, "utf-8") > MAX_JSON_CONTENT_BYTES) {
+          send(res, 413, errMsg("tooLarge"));
+          return;
+        }
         // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
         if (req.headers["content-type"]?.match(/^application\/x-www-form-urlencoded/)) {
           obj = querystring.parse(content);
@@ -48,15 +63,22 @@ export const jsonContent = (
           obj = JSON.parse(content);
         }
       } else {
+        // An upstream Express parser can populate req.body before this
+        // handler is attached. Enforce the same byte budget on that path.
+        if (Buffer.byteLength(JSON.stringify(content), "utf-8") > MAX_JSON_CONTENT_BYTES) {
+          send(res, 413, errMsg("tooLarge"));
+          return;
+        }
         obj = content;
       }
-    } catch (err) {
-      logger.error("JSON error", err);
-      logger.error(`Content was: ${content}`);
-      send(res, 400, errMsg("unknown", err as string));
-      accept = false;
+    } catch {
+      // Bodies and parser exceptions can contain credentials, recovery keys,
+      // or other user-provided secrets; never echo them to logs or clients.
+      logger.error("Malformed JSON request body");
+      send(res, 400, errMsg("unknown"));
+      return;
     }
-    if (accept) callback(obj);
+    callback(obj);
   };
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment, @typescript-eslint/prefer-ts-expect-error
   /* istanbul ignore if */ // @ts-expect-error
@@ -65,14 +87,24 @@ export const jsonContent = (
     // @ts-expect-error
     content = req.body;
     end();
+    return;
   }
-  req.on("data", (body: string) => {
-    content += body;
+  req.on("data", (body: string | Buffer) => {
+    if (finished) return;
+    const chunk = Buffer.isBuffer(body) ? body : Buffer.from(body, "utf-8");
+    receivedBytes += chunk.byteLength;
+    if (receivedBytes > MAX_JSON_CONTENT_BYTES) {
+      finished = true;
+      send(res, 413, errMsg("tooLarge"));
+      return;
+    }
+    rawChunks.push(chunk);
   });
   /* istanbul ignore next */
-  req.on("error", (err) => {
-    send(res, 400, errMsg("unknown", err.message));
-    accept = false;
+  req.on("error", () => {
+    if (finished) return;
+    finished = true;
+    send(res, 400, errMsg("unknown"));
   });
   req.on("end", end);
 };
@@ -358,5 +390,5 @@ export const getLocalPart = (id: string): string | null => {
   if (!id || !id.startsWith("@")) return null;
   const parts = id.split(":");
   if (parts.length < 2) return null;
-  return parts[0].slice(1);
+  return parts[0]?.slice(1) ?? null;
 };

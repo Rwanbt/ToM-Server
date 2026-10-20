@@ -158,7 +158,12 @@ const dnsSrvResolve = (name: string): Promise<string | string[]> => {
     dns.resolve(name, "SRV", (err, records) => {
       if (!err && records.length > 0) {
         const res = records.map((entry) => `https://${entry.name}:${entry.port}/`);
-        resolve(res.length > 1 ? res : res[0]);
+        const first = res[0];
+        if (!first) {
+          reject(new Error('DNS SRV records yielded no usable endpoint'));
+          return;
+        }
+        resolve(res.length > 1 ? res : first);
       } else {
         reject(false);
       }
@@ -199,7 +204,7 @@ export class MatrixResolve {
     });
   }
 
-  async resolve(name: string) {
+  async resolve(name: string): Promise<string | string[]> {
     if (this.cache) {
       const cachedValue = this.cache.get(name);
       if (cachedValue) return cachedValue;

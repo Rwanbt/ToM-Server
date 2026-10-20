@@ -67,7 +67,7 @@ export interface AuthRequest extends Request {
 
 export type ConfigurationFile = object | PathOrFileDescriptor | undefined;
 
-export const allMatrixErrorCodes = {
+export const allMatrixErrorCodes: typeof errCodes = {
   ...errCodes,
 } as const;
 

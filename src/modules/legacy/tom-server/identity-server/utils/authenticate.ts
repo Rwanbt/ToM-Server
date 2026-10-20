@@ -14,33 +14,53 @@ export interface WhoAmIResponse {
 const Authenticate = (
   db: TwakeDB,
   conf: Config,
-  logger: TwakeLogger
+  logger: TwakeLogger,
+  fetchWhoAmI: typeof fetch = fetch
 ): AuthenticationFunction => {
   const tokenRe = /^Bearer (\S+)$/
+  // Local Matrix identity caching is a performance optimization, not a
+  // permanent grant. Old credentials must be checked with the homeserver so
+  // revoked devices do not stay authenticated indefinitely.
+  const maxCachedTokenAgeMs = 5 * 60 * 1000
+  const validMatrixUserId = (value: unknown): value is string =>
+    typeof value === 'string' && /^@[^:\s]+:[^\s]+$/.test(value)
   const remoteAuth = RemoteAuthenticate(db, logger)
   return (req, res, callback) => {
     let token: string | null = null
     if (req.headers?.authorization != null) {
       const re = req.headers.authorization.match(tokenRe)
       if (re != null) {
-        token = re[1]
+        token = re[1] ?? null
       }
-      // @ts-expect-error req.query exists
-    } else if (req.query && Object.keys(req.query).length > 0) {
-      // @ts-expect-error req.query.access_token may be null
-      token = req.query.access_token
+    } else {
+      const query = (req as unknown as { query?: { access_token?: unknown } }).query
+      // Express parsers can supply arrays and objects for repeated or nested
+      // query keys; only a single, nonempty bearer credential is valid.
+      if (typeof query?.access_token === 'string' && query.access_token.length > 0) {
+        token = query.access_token
+      }
     }
     if (token != null) {
+      let hasCachedToken = false
       db.get('matrixTokens', ['data'], { id: token })
         .then((rows) => {
-          if (rows.length === 0) {
+          const stored = rows?.[0]?.data
+          hasCachedToken = typeof stored === 'string'
+          if (typeof stored !== 'string') {
             throw Error()
           }
-          callback(JSON.parse(rows[0].data as string), token)
+          const data: unknown = JSON.parse(stored)
+          if (!data || typeof data !== 'object' || !('sub' in data) ||
+              !validMatrixUserId(data.sub) || !('epoch' in data) ||
+              typeof data.epoch !== 'number' || !Number.isFinite(data.epoch) ||
+              data.epoch > epoch() || epoch() - data.epoch > maxCachedTokenAgeMs) {
+            throw new Error('Token subject is invalid')
+          }
+          callback(data as tokenContent, token)
         })
         .catch((e) => {
           // Try to get token from matrix
-          fetch(
+          fetchWhoAmI(
             `https://${conf.matrix_server}/_matrix/client/r0/account/whoami`,
             {
               headers: {
@@ -50,32 +70,36 @@ const Authenticate = (
             }
           )
             // eslint-disable-next-line @typescript-eslint/promise-function-async
-            .then((res) => res.json())
+            .then((res) => {
+              if (!res.ok) throw new Error('Matrix whoami failed')
+              return res.json()
+            })
             .then((userInfo) => {
-              const uid = (userInfo as WhoAmIResponse).user_id
+              const uid = (userInfo as WhoAmIResponse | null)?.user_id
               /* istanbul ignore else */
-              if (uid != null) {
+              // A successful HTTP response without a Matrix user ID must not
+              // become an authenticated local session.
+              if (validMatrixUserId(uid)) {
                 const data: tokenContent = {
                   sub: uid,
                   epoch: epoch()
                 }
-                // STORE
-                db.insert('matrixTokens', {
-                  // eslint-disable-next-line n/no-callback-literal
-                  // eslint-disable-next-line @typescript-eslint/ban-ts-comment, @typescript-eslint/prefer-ts-expect-error
-                  // @ts-ignore token is defined
-                  id: token,
-                  data: JSON.stringify(data)
-                }).catch((e) => {
+                // Replace an expired cached identity after authoritative
+                // revalidation; inserting a duplicate would leave it expired
+                // and force every subsequent request back to the homeserver.
+                const persistence = hasCachedToken
+                  ? db.update('matrixTokens', { data: JSON.stringify(data) }, 'id', token)
+                  : db.insert('matrixTokens', { id: token, data: JSON.stringify(data) })
+                persistence.catch(() => {
                   /* istanbul ignore next */
-                  logger.error('Unable to insert a token', e)
+                  logger.error('Unable to insert a token')
                 })
                 // eslint-disable-next-line n/no-callback-literal
                 // eslint-disable-next-line @typescript-eslint/ban-ts-comment, @typescript-eslint/prefer-ts-expect-error
                 // @ts-ignore token is defined
                 callback(data, token)
               } else {
-                logger.info('Bad local token, trying remote', userInfo)
+                logger.info('Bad local token, trying remote')
                 remoteAuth(req, res, (...args) => {
                   logger.info(
                     '[From Remote]: Token that locally failed was validated'
@@ -84,15 +108,16 @@ const Authenticate = (
                 })
               }
             })
-            .catch((e) => {
+            .catch(() => {
               /* istanbul ignore next */
-              logger.debug('Fetch error', e)
+              logger.debug('Fetch error')
               /* istanbul ignore next */
               send(res, 401, errMsg('unAuthorized'))
             })
         })
     } else {
-      logger.warn('Access tried without token', req.headers)
+      // Headers can contain cookies or Authorization secrets from other schemes.
+      logger.warn('Access tried without token')
       send(res, 401, errMsg('unAuthorized'))
     }
   }

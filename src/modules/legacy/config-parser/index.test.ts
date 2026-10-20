@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { afterAll, afterEach, beforeEach, describe, expect, it, mock, spyOn, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, it, mock, spyOn, test, type Mock } from "bun:test";
 import { ConfigCoercionError, FileReadParseError, MissingRequiredConfigError, UnacceptedKeyError } from "./errors";
 import twakeConfig from "./index";
 import type { ConfigDescription, Configuration } from "./types";
@@ -468,6 +468,18 @@ describe("twakeConfig - Edge Cases and Error Handling", () => {
     expect(() => twakeConfig(createTestConfigDesc(), undefined, true)).toThrow(
       /Configuration error for 'NUMBER_KEY' from environment variable 'NUMBER_KEY': Invalid number format for value: 'not_a_number'/,
     );
+  });
+
+  test("Rejects partial, non-finite, and non-decimal numeric configuration from the environment", () => {
+    for (const invalid of ["3000ms", "Infinity", "1e309", "0x10", "   "]) {
+      process.env.NUMBER_KEY = invalid;
+      expect(() => twakeConfig(createTestConfigDesc(), undefined, true)).toThrow(ConfigCoercionError);
+    }
+  });
+
+  test("Accepts a finite decimal in scientific notation for numeric configuration", () => {
+    process.env.NUMBER_KEY = "1.25e2";
+    expect(twakeConfig(createTestConfigDesc(), undefined, true).NUMBER_KEY).toBe(125);
   });
 
   test("Should throw ConfigCoercionError for invalid JSON format from environment variable (JSON type)", () => {

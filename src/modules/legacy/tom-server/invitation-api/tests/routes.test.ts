@@ -3,7 +3,7 @@ import express, { type Response, type NextFunction } from 'express'
 import bodyParser from 'body-parser'
 import type { AuthRequest, Config } from '../../types'
 import IdServer from '../../identity-server'
-import type { ConfigDescription } from '../../../../config-parser'
+import type { ConfigDescription } from '../../../config-parser'
 import type { TwakeLogger } from '../../../logger'
 import { IdentityServerDb, type MatrixDB } from '../../../matrix-identity-server'
 import router, { PATH } from '../routes'
@@ -21,7 +21,7 @@ const mockLogger: Partial<TwakeLogger> = {
   close: mock()
 }
 
-spyOn(IdentityServerDb.prototype, 'get').mockResolvedValue([{ data: '"test"' }])
+spyOn(IdentityServerDb.prototype, 'get').mockResolvedValue([{ data: JSON.stringify({ sub: '@test:example.org', epoch: Date.now() }) }])
 
 // Use in-memory databases to avoid conflicts between parallel test workers
 const idServer = new IdServer(
@@ -132,7 +132,7 @@ describe('the Invitation API router', () => {
     middlewareSpy.mockClear()
   })
 
-  it('should reject if rate limit is exceeded', { timeout: 30000 }, async () => {
+  it('should reject if rate limit is exceeded', async () => {
     let response
 
     for (let i = 0; i < 11; i++) {
@@ -141,9 +141,9 @@ describe('the Invitation API router', () => {
         .set('Authorization', 'Bearer test')
     }
 
-    expect((response as unknown as Response).status).toEqual(429)
+    expect(response?.status).toEqual(429)
     await new Promise((resolve) => setTimeout(resolve, 6000))
-  })
+  }, 30000)
 
   it('should not call the validation middleware if the Bearer token is not set', async () => {
     const response = await supertest(app).post(PATH).send({})

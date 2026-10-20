@@ -7,7 +7,6 @@
  */
 
 import { beforeEach, describe, expect, it, mock, test } from 'bun:test'
-import type { Mock } from 'bun:test'
 import request from 'supertest'
 import express, { type Express } from 'express'
 import WellKnown from '.'
@@ -37,20 +36,20 @@ function createApp(conf: WellKnownConfig): Express {
   const app = express()
   const wellKnown = new WellKnown(conf as unknown as Config)
 
-  app.get(
-    '/.well-known/matrix/client',
-    wellKnown.api.get['/.well-known/matrix/client']
-  )
-  app.get(
-    '/.well-known/twake/client',
-    wellKnown.api.get['/.well-known/twake/client']
-  )
+  const matrixHandler = wellKnown.api.get['/.well-known/matrix/client']
+  const twakeHandler = wellKnown.api.get['/.well-known/twake/client']
+  if (!matrixHandler || !twakeHandler) throw new Error('Well-known handlers are missing')
+
+  app.get('/.well-known/matrix/client', matrixHandler)
+  app.get('/.well-known/twake/client', twakeHandler)
   return app
 }
 
 describe('WellKnown class', () => {
+  let fetchStub: ReturnType<typeof mock>
   beforeEach(() => {
-    global.fetch = mock()
+    fetchStub = mock()
+    global.fetch = Object.assign(fetchStub, { preconnect: () => {} })
   })
 
   it('propagates features.common_settings.enabled correctly', async () => {
@@ -109,7 +108,7 @@ describe('WellKnown class', () => {
 
   it('merges remote matrix config without throwing', async () => {
     // Simulate a remote config from fetch
-    ;(global.fetch as Mock).mockResolvedValueOnce({
+    fetchStub.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         'm.identity_server': { base_url: 'https://remote.identity.url' }

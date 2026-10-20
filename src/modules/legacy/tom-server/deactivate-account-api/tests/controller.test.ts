@@ -1,10 +1,10 @@
-import { TwakeLogger } from '../../../logger'
+import { type TwakeLogger } from '../../../logger'
 import bodyParser from 'body-parser'
-import express, { NextFunction } from 'express'
+import express, { type NextFunction } from 'express'
 import router, { PATH } from '../routes'
 import type { AuthRequest, Config, TwakeDB } from '../../types'
 import supertest from 'supertest'
-import { MatrixDBBackend } from '../../../../matrix-identity-server'
+import type { MatrixDBBackend } from '../../../matrix-identity-server'
 import { describe, expect, it, mock, test } from 'bun:test'
 
 const app = express()

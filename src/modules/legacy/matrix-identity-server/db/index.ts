@@ -170,6 +170,7 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
   db: IdDbBackend<Collections | T>;
   cleanJob?: NodeJS.Timeout;
   cleanByExpires: Array<Collections | T>;
+  private maintenanceStopped = false;
 
   constructor(
     conf: Config,
@@ -178,7 +179,8 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
     additionnalIndexes?: Partial<Record<T, string[]>>,
     additionnalInitializeValues?: Partial<Record<Collections, Array<Record<string, string | number>>>>,
   ) {
-    this.cleanByExpires = cleanByExpires;
+    // A tenant-specific table list must not mutate the defaults for all DBs.
+    this.cleanByExpires = [...cleanByExpires];
     let Module;
     /* istanbul ignore next */
     switch (conf.database_engine) {
@@ -232,12 +234,12 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
   }
 
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/promise-function-async
-  insert(table: Collections | T, values: Record<string, string | number>) {
+  insert(table: Collections | T, values: Record<string, string | number>): Promise<DbGetResult> {
     return this.db.insert(table, values);
   }
 
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/promise-function-async
-  update(table: Collections | T, values: Record<string, string | number>, field: string, value: string | number) {
+  update(table: Collections | T, values: Record<string, string | number>, field: string, value: string | number): Promise<DbGetResult> {
     return this.db.update(table, values, field, value);
   }
 
@@ -247,7 +249,7 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
     values: Record<string, string | number>,
     condition1: { field: string; value: string | number },
     condition2: { field: string; value: string | number },
-  ) {
+  ): Promise<DbGetResult> {
     return this.db.updateAnd(table, values, condition1, condition2);
   }
 
@@ -257,7 +259,7 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
     fields: string[],
     filterFields: Record<string, string | number | Array<string | number>>,
     order?: string,
-  ) {
+  ): Promise<DbGetResult> {
     return this.db.get(table, fields, filterFields, order);
   }
 
@@ -268,7 +270,7 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
     filterFields: Record<string, string | number | Array<string | number>>,
     joinFields: Record<string, string>,
     order?: string,
-  ) {
+  ): Promise<DbGetResult> {
     return this.db.getJoin(table, fields, filterFields, joinFields, order);
   }
 
@@ -279,7 +281,7 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
     filterFields1: Record<string, string | number | Array<string | number>>,
     filterFields2: Record<string, string | number | Array<string | number>>,
     order?: string,
-  ) {
+  ): Promise<DbGetResult> {
     return this.db.getWhereEqualOrDifferent(table, fields, filterFields1, filterFields2, order);
   }
 
@@ -290,7 +292,7 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
     filterFields1: Record<string, string | number | Array<string | number>>,
     filterFields2: Record<string, string | number | Array<string | number>>,
     order?: string,
-  ) {
+  ): Promise<DbGetResult> {
     return this.db.getWhereEqualAndHigher(table, fields, filterFields1, filterFields2, order);
   }
 
@@ -301,7 +303,7 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
     fields: string[],
     filterFields: Record<string, string | number | Array<string | number>>,
     order?: string,
-  ) {
+  ): Promise<DbGetResult> {
     return this.db.getMaxWhereEqual(table, targetField, fields, filterFields, order);
   }
 
@@ -313,7 +315,7 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
     filterFields1: Record<string, string | number | Array<string | number>>,
     filterFields2: Record<string, string | number | Array<string | number>>,
     order?: string,
-  ) {
+  ): Promise<DbGetResult> {
     return this.db.getMaxWhereEqualAndLower(table, targetField, fields, filterFields1, filterFields2, order);
   }
 
@@ -325,7 +327,7 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
     filterFields1: Record<string, string | number | Array<string | number>>,
     filterFields2: Record<string, string | number | Array<string | number>>,
     order?: string,
-  ) {
+  ): Promise<DbGetResult> {
     return this.db.getMinWhereEqualAndHigher(table, targetField, fields, filterFields1, filterFields2, order);
   }
 
@@ -338,7 +340,7 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
     filterFields2: Record<string, string | number | Array<string | number>>,
     joinFields: Record<string, string>,
     order?: string,
-  ) {
+  ): Promise<DbGetResult> {
     return this.db.getMaxWhereEqualAndLowerJoin(
       tables,
       targetField,
@@ -351,12 +353,12 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
   }
 
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/promise-function-async
-  getCount(table: Collections | T, field: string, value?: string | number | string[]) {
+  getCount(table: Collections | T, field: string, value?: string | number | string[]): Promise<number> {
     return this.db.getCount(table, field, value);
   }
 
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/promise-function-async
-  getAll(table: Collections | T, fields: string[], order?: string) {
+  getAll(table: Collections | T, fields: string[], order?: string): Promise<DbGetResult> {
     return this.db.getAll(table, fields, order);
   }
 
@@ -371,12 +373,12 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
   }
 
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/promise-function-async
-  match(table: Collections | T, fields: string[], searchFields: string[], value: string | number) {
+  match(table: Collections | T, fields: string[], searchFields: string[], value: string | number): Promise<DbGetResult> {
     return this.db.match(table, fields, searchFields, value);
   }
 
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/promise-function-async
-  deleteEqual(table: Collections | T, field: string, value: string | number) {
+  deleteEqual(table: Collections | T, field: string, value: string | number): Promise<void> {
     return this.db.deleteEqual(table, field, value);
   }
 
@@ -391,17 +393,17 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
       field: string;
       value: string | number | Array<string | number>;
     },
-  ) {
+  ): Promise<void> {
     return this.db.deleteEqualAnd(table, condition1, condition2);
   }
 
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/promise-function-async
-  deleteLowerThan(table: Collections | T, field: string, value: string | number) {
+  deleteLowerThan(table: Collections | T, field: string, value: string | number): Promise<void> {
     return this.db.deleteLowerThan(table, field, value);
   }
 
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/promise-function-async
-  deleteWhere(table: Collections | T, conditions: ISQLCondition | ISQLCondition[]) {
+  deleteWhere(table: Collections | T, conditions: ISQLCondition | ISQLCondition[]): Promise<void> {
     // Deletes from table where filters correspond to values
     // Size of filters and values must be the same
     return this.db.deleteWhere(table, conditions);
@@ -420,7 +422,7 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
     const id = randomString(64);
     // default: expires in 600 s
     const expiresForDb = epoch() + 1000 * (expires !== null && expires !== undefined && expires > 0 ? expires : 600);
-    return new Promise((resolve, _reject) => {
+    return new Promise((resolve, reject) => {
       this.db
         .insert("oneTimeTokens", {
           id,
@@ -431,8 +433,10 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
           resolve(id);
         })
         .catch((err) => {
-          /* istanbul ignore next */
-          this.logger.error("Failed to insert token", err);
+          // A failed INSERT must never leave a pending token promise.
+          // Report only a generic message, not the token or secret payload.
+          this.logger.error("Failed to insert token");
+          reject(err);
         });
     });
   }
@@ -458,12 +462,13 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
           data: JSON.stringify(data),
         })
         .then(() => {
-          this.logger.info(`Invitation token created for ${address}`);
+          // Invitation addresses are personal data and should not reach logs.
+          this.logger.info("Invitation token created");
           resolve(id);
         })
         .catch((err) => {
           /* istanbul ignore next */
-          this.logger.error("Failed to insert token", err);
+          this.logger.error("Failed to insert token");
           reject(err);
         });
     });
@@ -483,8 +488,8 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
     try {
       const tokenResults = await this.db.get("invitationTokens", ["data", "address", "id"], { address });
       return tokenResults.map((row) => JSON.parse(row.data as string));
-    } catch (error) {
-      this.logger.error("Failed to get tokens", error);
+    } catch {
+      this.logger.error("Failed to get tokens");
     }
   }
 
@@ -499,15 +504,16 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
         .get("invitationTokens", ["data", "address"], { id })
         .then((rows) => {
           /* istanbul ignore else */
-          if (rows.length > 0) {
-            resolve(JSON.parse(rows[0].data as string));
+          const row = rows[0];
+          if (row !== undefined) {
+            resolve(JSON.parse(row.data as string));
           } else {
             reject(new Error("Unknown token"));
           }
         })
         .catch((e) => {
           /* istanbul ignore next */
-          this.logger.error("Failed to get token", e);
+          this.logger.error("Failed to get token");
           reject(e);
         });
     });
@@ -524,10 +530,13 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
         .get("oneTimeTokens", ["data", "expires"], { id })
         .then((rows) => {
           /* istanbul ignore else */
-          if (rows.length > 0 && (rows[0].expires as number) >= epoch()) {
-            resolve(JSON.parse(rows[0].data as string));
+          const row = rows[0];
+          if (row === undefined) {
+            reject(new Error("Unknown token"));
+          } else if (typeof row.expires === "number" && row.expires >= epoch()) {
+            resolve(JSON.parse(row.data as string));
           } else {
-            reject(new Error(`Token expired${(rows[0].expires as number).toString()}`));
+            reject(new Error("Token expired"));
           }
         })
         .catch((e) => {
@@ -565,17 +574,17 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
     if (this.db === null || this.db === undefined) {
       throw new Error("Wait for database to be ready");
     }
-    return new Promise((resolve, _reject) => {
+    return new Promise((resolve, reject) => {
       this.db
         .deleteEqual("oneTimeTokens", "id", id)
         .then(() => {
           resolve();
         })
         .catch((e) => {
-          /* istanbul ignore next */
-          this.logger.info(`Token ${id} already deleted`, e);
-          /* istanbul ignore next */
-          resolve();
+          // A failed revocation must not be reported as consumption:
+          // otherwise a one-time token can be replayed after a DB outage.
+          this.logger.error("Failed to revoke token");
+          reject(e);
         });
     });
   }
@@ -591,13 +600,15 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
       this.db
         .getAll("longTermKeypairs", ["keyID", "public", "private"])
         .then((rows) => {
-          if (rows.length === 0) {
+          const row = rows[0];
+          if (row === undefined) {
             reject(new Error(`No ${_type} found`));
+            return;
           }
           resolve({
-            keyId: rows[0].keyID as string,
-            publicKey: rows[0].public as string,
-            privateKey: rows[0].private as string,
+            keyId: row.keyID as string,
+            publicKey: row.public as string,
+            privateKey: row.private as string,
           });
         })
         .catch((e) => {
@@ -666,37 +677,43 @@ class IdentityServerDb<T extends string = never> implements IdDbBackend<Collecti
     if (this.db === null || this.db === undefined) {
       throw new Error("Wait for database to be ready");
     }
-    return new Promise((resolve, _reject) => {
+    return new Promise((resolve, reject) => {
       this.db
         .deleteEqual("shortTermKeypairs", "KeyID", _keyID)
         .then(() => {
           resolve();
         })
         .catch((e) => {
-          /* istanbul ignore next */
-          this.logger.info(`Key ${_keyID} already deleted`, e);
-          /* istanbul ignore next */
-          resolve();
+          this.logger.error("Failed to revoke key");
+          reject(e);
         });
     });
   }
 
   dbMaintenance(delay: number): void {
+    const intervalMs = Number.isFinite(delay) && delay > 0 ? delay * 1000 : 3600 * 1000;
+    clearTimeout(this.cleanJob);
+    this.maintenanceStopped = false;
     const _vacuum = async (): Promise<void> => {
-      /* istanbul ignore next */
-      await Promise.all(
-        // eslint-disable-next-line @typescript-eslint/promise-function-async
-        this.cleanByExpires.map((table) => {
-          return this.deleteLowerThan(table, "expires", epoch());
-        }),
-      );
-      /* istanbul ignore next */
-      this.cleanJob = setTimeout(() => _vacuum, delay * 1000);
+      try {
+        await Promise.all(this.cleanByExpires.map((table) =>
+          this.deleteLowerThan(table, "expires", epoch())));
+      } catch {
+        // A transient database failure must not permanently disable expiry.
+        // Do not serialize the error: SQLite messages can contain SQL values.
+        this.logger.error("[IdentityServerDb] Expiration cleanup failed");
+      } finally {
+        if (!this.maintenanceStopped) {
+          this.cleanJob = setTimeout(() => { void _vacuum(); }, intervalMs);
+        }
+      }
     };
-    this.cleanJob = setTimeout(() => _vacuum, delay * 1000);
+    this.cleanJob = setTimeout(() => { void _vacuum(); }, intervalMs);
   }
 
   close(): void {
+    this.maintenanceStopped = true;
+    clearTimeout(this.cleanJob);
     this.db.close();
   }
 }

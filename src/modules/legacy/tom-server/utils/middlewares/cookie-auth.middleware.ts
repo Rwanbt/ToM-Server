@@ -1,7 +1,7 @@
 import type { TwakeLogger } from '../../../logger/index'
 import type { Request, Response, NextFunction } from 'express'
 import TokenService from '../services/token-service'
-import { Config, ITokenService } from '../../types'
+import { type Config, type ITokenService } from '../../types'
 
 export default class CookieAuthenticator {
   private tokenService: ITokenService
@@ -33,7 +33,7 @@ export default class CookieAuthenticator {
     req: Request,
     _res: Response,
     next: NextFunction
-  ) => {
+  ): Promise<void> => {
     try {
       if (req.headers.authorization) {
         this.logger.error(
@@ -63,8 +63,8 @@ export default class CookieAuthenticator {
       req.headers.authorization = `Bearer ${token}`
 
       next()
-    } catch (error) {
-      this.logger.error(`Failed to authenticate with cookie`, { error })
+    } catch {
+      this.logger.error('Failed to authenticate with cookie')
 
       next()
     }

@@ -22,7 +22,7 @@ export const Authenticate = <T extends string = never>(
     if (req.headers.authorization != null) {
       const re = req.headers.authorization.match(tokenRe)
       if (re != null) {
-        token = re[1]
+        token = re[1] ?? null
       }
       // @ts-expect-error req.query exists
     } else if (req.query && Object.keys(req.query).length > 0) {
@@ -32,22 +32,32 @@ export const Authenticate = <T extends string = never>(
     if (token != null) {
       db.get('accessTokens', ['data'], { id: token })
         .then((rows) => {
-          // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-          if (!rows || rows.length === 0) {
-            logger.error(
-              `${req.socket.remoteAddress as string} sent an inexistent token ${
-                token as string
-              }`
-            )
+          const stored = rows?.[0]
+          if (!stored || typeof stored.data !== 'string') {
+            // Never log a bearer token, including tokens that are unknown to us.
+            logger.error(`${req.socket.remoteAddress as string} sent an inexistent token`)
             send(res, 401, errMsg('unAuthorized'))
           } else {
+            let parsed: unknown
+            try {
+              parsed = JSON.parse(stored.data)
+            } catch {
+              send(res, 401, errMsg('unAuthorized'))
+              return
+            }
+            if (!parsed || typeof parsed !== 'object' || !('sub' in parsed) ||
+                typeof parsed.sub !== 'string' || parsed.sub.length === 0) {
+              send(res, 401, errMsg('unAuthorized'))
+              return
+            }
+            const content = parsed as tokenContent
             if (requiresTerms) {
               db.get('userPolicies', ['policy_name', 'accepted'], {
-                user_id: JSON.parse(rows[0].data as string).sub
+                user_id: content.sub
               })
                 .then((policies) => {
                   if (policies.length === 0) {
-                    callback(JSON.parse(rows[0].data as string), token)
+                    callback(content, token)
                     // If there are no policies to accept. This assumes that for each policy we add to the config, we update the database and add the corresponding policy with accepted = 0 for all users
                     return
                   }
@@ -61,26 +71,23 @@ export const Authenticate = <T extends string = never>(
                     )
                     send(res, 403, errMsg('termsNotSigned'))
                   } else {
-                    callback(JSON.parse(rows[0].data as string), token)
+                    callback(content, token)
                   }
                 })
                 .catch((e) => {
-                  logger.error(
-                    `Please accept our updated terms of service before continuing.`,
-                    e
-                  )
+                  // Policy DB exceptions can include bearer-token lookup keys.
+                  logger.error('Could not check current terms of service')
                   send(res, 403, errMsg('termsNotSigned'))
                 })
             } else {
-              callback(JSON.parse(rows[0].data as string), token)
+              callback(content, token)
             }
           }
         })
-        .catch((e) => {
-          logger.error(
-            `${req.socket.remoteAddress as string} sent an invalid token`,
-            e
-          )
+        .catch(() => {
+          // Database errors may contain the lookup key (the full bearer token).
+          // Do not pass untrusted exception objects into an application logger.
+          logger.error(`${req.socket.remoteAddress as string} sent an invalid token`)
           send(res, 401, errMsg('unAuthorized'))
         })
     } else {
@@ -128,5 +135,5 @@ export const buildUrl = (base: string, path: string): string => {
  * @return {string}
  */
 export const getServerNameFromMatrixId = (mxid: string): string => {
-  return mxid.split(':')[1]
+  return mxid.split(':')[1] ?? ''
 }

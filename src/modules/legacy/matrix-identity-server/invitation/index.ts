@@ -234,12 +234,13 @@ const StoreInvit = <T extends string = never>(
                 name: 'pepper'
               })) as unknown as Record<'data', string>[]
 
-              if (!papperQuery || !papperQuery.length) {
+              const pepper = papperQuery?.[0]?.data
+              if (typeof pepper !== 'string' || !pepper) {
                 send(res, 500, errMsg('unknown', 'No pepper found'))
                 return
               }
 
-              const _pepper = papperQuery[0].data
+              const _pepper = pepper
 
               const response = await fetch(
                 buildUrl(idServer.conf.base_url, '/_matrix/identity/v2/lookup'),

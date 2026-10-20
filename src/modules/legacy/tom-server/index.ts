@@ -88,7 +88,9 @@ export default class TwakeServer {
   private async _initServer(confDesc?: ConfigDescription): Promise<boolean> {
     await this.idServer.ready
     this.db = this.idServer.db
-    this.db.cleanByExpires.push('matrixTokens')
+    // matrixTokens has no expires column. Its cached identities are time-bound
+    // and revalidated in Authenticate; scheduling DELETE on an absent column
+    // breaks the expiry job for one-time tokens and abuse-attempt records.
     this.logger.debug('idServer initialized')
     await this.matrixDb.ready
     this.logger.debug('Connected to Matrix DB')
@@ -199,14 +201,17 @@ export default class TwakeServer {
     this.endpoints.use(matrixClientApi)
 
     Object.keys(this.idServer.api.get).forEach((k) => {
-      this.endpoints.get(k, this.idServer.api.get[k])
+      const handler = this.idServer.api.get[k]
+      if (handler) this.endpoints.get(k, handler)
     })
     Object.keys(this.idServer.api.post).forEach((k) => {
-      this.endpoints.post(k, this.idServer.api.post[k])
+      const handler = this.idServer.api.post[k]
+      if (handler) this.endpoints.post(k, handler)
     })
     this.endpoints.use(vaultServer.endpoints)
     Object.keys(wellKnown.api.get).forEach((k) => {
-      this.endpoints.get(k, wellKnown.api.get[k])
+      const handler = wellKnown.api.get[k]
+      if (handler) this.endpoints.get(k, handler)
     })
 
     return true

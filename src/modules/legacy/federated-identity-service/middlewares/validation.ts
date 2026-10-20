@@ -1,6 +1,6 @@
 import { body, type ValidationChain } from 'express-validator'
 
-export const commonValidators = [
+export const commonValidators: ValidationChain[] = [
   body('algorithm').exists().isString(),
   body('pepper').exists().isString()
 ]
@@ -18,7 +18,7 @@ export const lookupValidator = (hashesLimit: number): ValidationChain =>
       return true
     })
 
-export const lookupsValidator = [
+export const lookupsValidator: ValidationChain[] = [
   body('pepper').exists().isString(),
   body('mappings')
     .exists()

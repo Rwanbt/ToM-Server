@@ -1,8 +1,8 @@
-import express, { NextFunction } from 'express'
+import express, { type NextFunction } from 'express'
 import type { AuthRequest, Config, TwakeDB } from '../../types'
 import bodyParser from 'body-parser'
 import router, { PATH } from '../routes'
-import { TwakeLogger } from '../../../logger'
+import { type TwakeLogger } from '../../../logger'
 import supertest from 'supertest'
 import { describe, expect, it, mock, test } from 'bun:test'
 

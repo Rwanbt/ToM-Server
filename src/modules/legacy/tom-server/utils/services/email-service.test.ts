@@ -1,5 +1,5 @@
 import { describe, expect, it, mock } from 'bun:test'
-import { Config } from '../../types'
+import { type Config } from '../../types'
 import EmailService from './email-service'
 
 const sendMailMock = mock()

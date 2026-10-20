@@ -1,4 +1,4 @@
-import { TwakeLogger } from '../../../logger/index'
+import { type TwakeLogger } from '../../../logger/index'
 import type { AuthRequest, Config, TwakeDB } from '../../types'
 import type { NextFunction, Request, Response } from 'express'
 import type { Invitation, InvitationRequestPayload } from '../types'
@@ -89,20 +89,21 @@ export default class invitationApiMiddleware {
         return
       }
 
-      const invitation = (await this.db.get(
+      const invitations = (await this.db.get(
         'invitations',
         ['expiration', 'sender'],
         {
           id
         }
       )) as unknown as Invitation[]
+      const invitation = invitations?.[0]
 
-      if (!invitation || !invitation.length) {
+      if (!invitation) {
         res.status(404).json({ message: 'Invitation not found' })
         return
       }
 
-      const { expiration, sender } = invitation[0]
+      const { expiration, sender } = invitation
 
       if (userId === sender) {
         res
@@ -111,7 +112,8 @@ export default class invitationApiMiddleware {
         return
       }
 
-      if (+expiration < Date.now()) {
+      const expiresAt = Number(expiration)
+      if (!Number.isFinite(expiresAt) || expiresAt < Date.now()) {
         res.status(400).json({ message: 'Invitation expired' })
         return
       }
@@ -146,16 +148,17 @@ export default class invitationApiMiddleware {
         return
       }
 
-      const invitation = await this.db.get('invitations', ['sender'], {
+      const invitations = await this.db.get('invitations', ['sender'], {
         id
       })
+      const invitation = invitations?.[0]
 
-      if (!invitation || !invitation.length) {
+      if (!invitation) {
         res.status(404).json({ message: 'Invitation not found' })
         return
       }
 
-      const { sender } = invitation[0]
+      const { sender } = invitation
 
       if (sender !== req.userId) {
         res
@@ -202,10 +205,15 @@ export default class invitationApiMiddleware {
         return
       }
 
-      const lastInvitation = invitations[invitations.length - 1]
+      const lastInvitation = invitations.at(-1)
+      if (!lastInvitation) {
+        next()
+        return
+      }
       const { expiration } = lastInvitation
 
-      if (Date.now() - parseInt(expiration) < this.ONE_HOUR) {
+      const expiresAt = Number(expiration)
+      if (!Number.isFinite(expiresAt) || Date.now() - expiresAt < this.ONE_HOUR) {
         res
           .status(400)
           .json({ message: 'You already sent an invitation to this contact' })

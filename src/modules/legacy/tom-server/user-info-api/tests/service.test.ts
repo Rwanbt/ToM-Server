@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, mock, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, it, mock, test, type Mock } from 'bun:test'
 import { type TwakeLogger } from '../../../logger'
-import { DbGetResult, MatrixDB, UserDB } from '../../../../matrix-identity-server'
-import { IAddressbookService } from '../../addressbook-api/types'
+import type { DbGetResult, MatrixDB, UserDB } from '../../../matrix-identity-server'
+import { type IAddressbookService } from '../../addressbook-api/types'
 import type { Config, TwakeDB } from '../../types'
 import UserInfoService from '../services'
 import {
@@ -9,7 +9,7 @@ import {
   ProfileVisibility,
   type UserProfileSettingsPayloadT,
   type UserInformation,
-  UserProfileSettingsT
+  type UserProfileSettingsT
 } from '../types'
 
 const BASE_CONFIG = {
@@ -68,7 +68,9 @@ const loggerMock: LoggerWithoutTrace = {
   close: mock()
 } as unknown as LoggerWithoutTrace // Need cast due to complex Omit type usage
 
-type UserDBMinimal = UserDB
+type UserDBMinimal = UserDB & {
+  get: Mock<UserDB['get']>
+}
 const userDBMock: UserDBMinimal = {
   get: mock()
 } as unknown as UserDBMinimal
@@ -142,7 +144,11 @@ const mockUserDB = (
   })()
 }
 
-type TwakeDBMinimal = Omit<TwakeDB, 'delete'>
+type TwakeDBMinimal = Omit<TwakeDB, 'delete'> & {
+  get: Mock<TwakeDB['get']>
+  insert: Mock<TwakeDB['insert']>
+  update: Mock<TwakeDB['update']>
+}
 const twakeDBMock: TwakeDBMinimal = {
   get: mock(),
   insert: mock().mockImplementation(async (table, values) => {
@@ -254,7 +260,9 @@ const mockTwakeDB = (
   })()
 }
 
-type MatrixDBMinimal = Omit<MatrixDB, 'set'>
+type MatrixDBMinimal = Omit<MatrixDB, 'set'> & {
+  get: Mock<MatrixDB['get']>
+}
 const matrixDBMock: MatrixDBMinimal = {
   get: mock(),
   delete: mock()

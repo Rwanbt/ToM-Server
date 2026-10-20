@@ -126,7 +126,7 @@ describe('_search factory', () => {
         })
       )
 
-      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0][2]
+      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0]?.[2]
       expect(
         response.matches.length + response.inactive_matches.length
       ).toBeGreaterThan(0)
@@ -245,7 +245,7 @@ describe('_search factory', () => {
 
       await searchFn(resMock, dataMock)
 
-      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0][2]
+      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0]?.[2]
       expect(
         response.matches.length + response.inactive_matches.length
       ).toBeGreaterThan(0)
@@ -457,7 +457,7 @@ describe('_search factory', () => {
 
       await searchFn(resMock, dataMock)
 
-      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0][2]
+      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0]?.[2]
       const allResults = [...response.matches, ...response.inactive_matches]
       const drwhoResult = allResults.find((r: any) => r.uid === '@drwho:server')
       expect(drwhoResult).toBeDefined()
@@ -495,7 +495,7 @@ describe('_search factory', () => {
 
       await searchFn(resMock, dataMock)
 
-      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0][2]
+      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0]?.[2]
       const allResults = [...response.matches, ...response.inactive_matches]
       expect(allResults.length).toBe(1)
       expect(allResults[0].uid).toBe('@valid:server')
@@ -569,7 +569,7 @@ describe('_search factory', () => {
 
       await searchFn(resMock, dataMock)
 
-      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0][2]
+      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0]?.[2]
       expect(response.matches.length).toBeGreaterThan(0)
       expect(
         response.matches.some(
@@ -608,7 +608,7 @@ describe('_search factory', () => {
 
       await searchFn(resMock, dataMock)
 
-      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0][2]
+      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0]?.[2]
       expect(response.inactive_matches.length).toBeGreaterThan(0)
       expect(
         response.inactive_matches.some((m: any) => m.uid === '@inactive:server')
@@ -644,7 +644,7 @@ describe('_search factory', () => {
 
       await searchFn(resMock, dataMock)
 
-      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0][2]
+      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0]?.[2]
       const allResults = [...response.matches, ...response.inactive_matches]
       const drwhoResults = allResults.filter(
         (r: any) => r.uid === '@drwho:server' || r.address === '@drwho:server'
@@ -675,7 +675,7 @@ describe('_search factory', () => {
 
       expect(mockUserInfoGetBatch).toHaveBeenCalled()
 
-      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0][2]
+      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0]?.[2]
       const allResults = [...response.matches, ...response.inactive_matches]
       expect(allResults.length).toBeGreaterThan(0)
 
@@ -709,7 +709,7 @@ describe('_search factory', () => {
 
       await searchFn(resMock, dataMock)
 
-      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0][2]
+      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0]?.[2]
       const allResults = [...response.matches, ...response.inactive_matches]
       const user = allResults[0]
 
@@ -767,7 +767,7 @@ describe('_search factory', () => {
 
       await searchFn(resMock, dataMock)
 
-      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0][2]
+      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0]?.[2]
       expect(response.matches).toEqual([])
       expect(response.inactive_matches).toEqual([])
     })
@@ -803,7 +803,7 @@ describe('_search factory', () => {
 
       await searchFn(resMock, dataMock)
 
-      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0][2]
+      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0]?.[2]
       // Should still have results from userDB
       expect(
         response.matches.length + response.inactive_matches.length
@@ -855,7 +855,7 @@ describe('_search factory', () => {
 
       await searchFn(resMock, dataMock)
 
-      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0][2]
+      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0]?.[2]
       const totalReturned =
         response.matches.length + response.inactive_matches.length
 
@@ -932,7 +932,7 @@ describe('_search factory', () => {
 
       await searchFn(resMock, dataMock)
 
-      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0][2]
+      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0]?.[2]
       expect(response.matches).toEqual([])
       expect(response.inactive_matches).toEqual([])
     })
@@ -971,7 +971,7 @@ describe('_search factory', () => {
 
       await searchFn(resMock, dataMock)
 
-      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0][2]
+      const response = (send as Mock<(...args: any[]) => any>).mock.calls[0]?.[2]
       const totalReturned =
         response.matches.length + response.inactive_matches.length
 

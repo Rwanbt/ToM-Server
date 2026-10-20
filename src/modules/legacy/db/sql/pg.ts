@@ -111,9 +111,10 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
       this.logger.error("[Pg][rawQuery] DB not ready");
       return Promise.reject(new Error("DB not ready"));
     }
-    this.logger.debug("[Pg][rawQuery] Executing query", { query });
+    // Legacy queries can embed bearer tokens, passwords and user data.
+    this.logger.debug("[Pg][rawQuery] Executing query");
     return this.db.query(query).catch((err) => {
-      this.logger.error("[Pg][rawQuery] Query failed", { query, error: err });
+      this.logger.error("[Pg][rawQuery] Query failed");
       throw err;
     });
   }
@@ -155,9 +156,9 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
       }
       const names: string[] = [];
       const vals: (string[] & Array<string | number>) | (number[] & Array<string | number>) = [];
-      Object.keys(values).forEach((k) => {
+      Object.entries(values).forEach(([k, v]) => {
         names.push(k);
-        vals.push(values[k]);
+        vals.push(v);
       });
       const query = `INSERT INTO ${table}(${names.join(",")}) VALUES(${names
         .map((_v, i) => `$${i + 1}`)
@@ -169,13 +170,7 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
       });
       this.db.query(query, vals, (err, rows) => {
         if (err) {
-          this.logger.error("[Pg][insert] Failed", {
-            table,
-            fields: names,
-            values: vals,
-            query,
-            error: err,
-          });
+          this.logger.error("[Pg][insert] Failed");
           reject(err);
         } else {
           this.logger.debug("[Pg][insert] Successful", {
@@ -202,9 +197,9 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
       } else {
         const names: string[] = [];
         const vals: (string[] & Array<string | number>) | (number[] & Array<string | number>) = [];
-        Object.keys(values).forEach((k) => {
+        Object.entries(values).forEach(([k, v]) => {
           names.push(k);
-          vals.push(values[k]);
+          vals.push(v);
         });
         vals.push(value);
         const query = `UPDATE ${table} SET ${names
@@ -218,13 +213,7 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
         });
         this.db.query(query, vals, (err, rows) => {
           if (err) {
-            this.logger.error("[Pg][update] Failed", {
-              table,
-              fields: names,
-              whereField: field,
-              query,
-              error: err,
-            });
+            this.logger.error("[Pg][update] Failed");
             reject(err);
           } else {
             this.logger.debug("[Pg][update] Successful", {
@@ -255,9 +244,9 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
       } else {
         const names: string[] = [];
         const vals: (string[] & Array<string | number>) | (number[] & Array<string | number>) = [];
-        Object.keys(values).forEach((k) => {
+        Object.entries(values).forEach(([k, v]) => {
           names.push(k);
-          vals.push(values[k]);
+          vals.push(v);
         });
         vals.push(condition1.value, condition2.value);
         const query = `UPDATE ${table} SET ${names
@@ -342,9 +331,11 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
                 filterFields[key].toString() !== [].toString(),
             )
             .forEach((key) => {
+              const filterValue = filterFields[key];
+              if (filterValue == null) return;
               localCondition += localCondition !== "" ? " AND " : "";
-              if (Array.isArray(filterFields[key])) {
-                localCondition += `(${(filterFields[key] as Array<string | number>)
+              if (Array.isArray(filterValue)) {
+                localCondition += `(${filterValue
                   .map((val) => {
                     index++;
                     values.push(val.toString());
@@ -353,7 +344,7 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
                   .join(" OR ")})`;
               } else {
                 index++;
-                values.push(filterFields[key].toString());
+                values.push(filterValue.toString());
                 localCondition += `${key}${op}$${index}`;
               }
             });
@@ -390,21 +381,10 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
         if (order) condition += ` ORDER BY ${order}`;
 
         const query = `SELECT ${fields.join(",")} FROM ${tables.join(",")} ${condition}`;
-        this.logger.debug("[Pg][_get] Executing SELECT", {
-          tables,
-          fields,
-          condition,
-          query,
-        });
+        this.logger.debug("[Pg][_get] Executing SELECT");
         this.db.query(query, values, (err: any, rows: any) => {
           if (err) {
-            this.logger.error("[Pg][_get] SELECT failed", {
-              tables,
-              fields,
-              condition,
-              query,
-              error: err,
-            });
+            this.logger.error("[Pg][_get] SELECT failed");
             reject(err);
           } else {
             this.logger.debug("[Pg][_get] SELECT successful", {
@@ -581,9 +561,11 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
                 filterFields[key].toString() !== [].toString(),
             )
             .forEach((key) => {
+              const filterValue = filterFields[key];
+              if (filterValue == null) return;
               localCondition += localCondition !== "" ? " AND " : "";
-              if (Array.isArray(filterFields[key])) {
-                localCondition += `(${(filterFields[key] as Array<string | number>)
+              if (Array.isArray(filterValue)) {
+                localCondition += `(${filterValue
                   .map((val) => {
                     index++;
                     values.push(val.toString());
@@ -592,7 +574,7 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
                   .join(" OR ")})`;
               } else {
                 index++;
-                values.push(filterFields[key].toString());
+                values.push(filterValue.toString());
                 localCondition += `${key}${op}$${index}`;
               }
             });
@@ -628,23 +610,10 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
         )}, ${minmax}(${targetField}) AS max_${targetFieldAlias} FROM ${tables.join(
           ",",
         )} ${condition} HAVING COUNT(*) > 0`; // HAVING COUNT(*) > 0 is to avoid returning a row with NULL values
-        this.logger.debug(`[Pg][_getMinMax] Executing ${minmax} query`, {
-          tables,
-          targetField,
-          fields,
-          condition,
-          query,
-        });
+        this.logger.debug(`[Pg][_getMinMax] Executing ${minmax} query`);
         this.db.query(query, values, (err, rows) => {
           if (err) {
-            this.logger.error(`[Pg][_getMinMax] ${minmax} query failed`, {
-              tables,
-              targetField,
-              fields,
-              condition,
-              query,
-              error: err,
-            });
+            this.logger.error(`[Pg][_getMinMax] ${minmax} query failed`);
             reject(err);
           } else {
             this.logger.debug(`[Pg][_getMinMax] ${minmax} query successful`, {
@@ -771,22 +740,10 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
         if (order) condition += ` ORDER BY ${order}`;
 
         const query = `SELECT ${fields.join(",")} FROM ${table} WHERE ${condition}`;
-        this.logger.debug("[Pg][match] Executing LIKE query", {
-          table,
-          searchFields,
-          value,
-          fields,
-          query,
-        });
+        this.logger.debug("[Pg][match] Executing LIKE query");
         this.db.query(query, values, (err, rows) => {
           if (err) {
-            this.logger.error("[Pg][match] Query failed", {
-              table,
-              searchFields,
-              value,
-              query,
-              error: err,
-            });
+            this.logger.error("[Pg][match] Query failed");
             reject(err);
           } else {
             this.logger.debug("[Pg][match] Query successful", {
@@ -810,9 +767,8 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
           this.logger.error("[Pg][deleteEqual] Invalid parameters", {
             table,
             field,
-            value,
           });
-          reject(new Error(`Bad deleteEqual call, field: ${field}, value: ${value}`));
+          reject(new Error("Bad deleteEqual call: invalid field or value"));
           return;
         }
         const query = `DELETE FROM ${table} WHERE ${field}=$1`;
@@ -826,12 +782,7 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
           [value] as (string[] & Array<string | number>) | (number[] & Array<string | number>),
           (err, _rows) => {
             if (err) {
-              this.logger.error("[Pg][deleteEqual] Failed", {
-                table,
-                field,
-                query,
-                error: err,
-              });
+              this.logger.error("[Pg][deleteEqual] Failed");
               reject(err);
             } else {
               this.logger.debug("[Pg][deleteEqual] Successful", {
@@ -872,16 +823,8 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
           !condition2.value ||
           condition2.value.toString().length === 0
         ) {
-          this.logger.error("[Pg][deleteEqualAnd] Invalid parameters", {
-            table,
-            condition1: { field: condition1.field, value: condition1.value },
-            condition2: { field: condition2.field, value: condition2.value },
-          });
-          reject(
-            new Error(
-              `Bad deleteAnd call, conditions: ${condition1.field}=${condition1.value}, ${condition2.field}=${condition2.value}`,
-            ),
-          );
+          this.logger.error("[Pg][deleteEqualAnd] Invalid parameters", { table });
+          reject(new Error("Bad deleteAnd call: invalid conditions"));
           return;
         }
         const query = `DELETE FROM ${table} WHERE ${condition1.field}=$1 AND ${condition2.field}=$2`;
@@ -897,12 +840,7 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
           | (number[] & Array<string | number>),
           (err) => {
             if (err) {
-              this.logger.error("[Pg][deleteEqualAnd] Failed", {
-                table,
-                conditions: [condition1.field, condition2.field],
-                query,
-                error: err,
-              });
+              this.logger.error("[Pg][deleteEqualAnd] Failed");
               reject(err);
             } else {
               this.logger.debug("[Pg][deleteEqualAnd] Successful", {
@@ -990,25 +928,13 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
         }
 
         const query = `DELETE FROM ${table} WHERE ${condition}`;
-        this.logger.debug("[Pg][deleteWhere] Executing", {
-          table,
-          conditions: filters,
-          operators,
-          query,
-        });
+        this.logger.debug("[Pg][deleteWhere] Executing");
         this.db.query(
           query,
           values as (string[] & Array<string | number>) | (number[] & Array<string | number>),
           (err) => {
             if (err) {
-              this.logger.error("[Pg][deleteWhere] Failed", {
-                table,
-                conditions: filters,
-                operators,
-                values,
-                query,
-                error: err,
-              });
+              this.logger.error("[Pg][deleteWhere] Failed");
               reject(err);
             } else {
               this.logger.debug("[Pg][deleteWhere] Successful", {

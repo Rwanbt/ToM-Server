@@ -1,7 +1,7 @@
 import configParser, { type ConfigDescription } from '../config-parser/index'
 import { type TwakeLogger } from '../logger/index'
 import MatrixIdentityServer from '../matrix-identity-server/index'
-import { Router } from 'express'
+import { Router, type Router as ExpressRouter } from 'express'
 import fs from 'fs'
 import defaultConfig from '../defaultConfig.json'
 import { Authenticate } from './middlewares/auth'
@@ -15,7 +15,7 @@ const tables = {
 }
 
 export default class FederatedIdentityService extends MatrixIdentityServer<fdDbCollections> {
-  routes = Router()
+  routes: ExpressRouter = Router()
   declare conf: Config
   declare db: FdServerDb
   constructor(

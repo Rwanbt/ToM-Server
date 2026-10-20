@@ -6,7 +6,7 @@ import { type Config } from '../../types'
 
 class UserDBPg extends Pg<Collections> implements UserDBBackend {
   // eslint-disable-next-line @typescript-eslint/promise-function-async
-  createDatabases(
+  override createDatabases(
     conf: Config,
     tables: Record<Collections, string>,
     indexes: Partial<Record<Collections, string[]>>,

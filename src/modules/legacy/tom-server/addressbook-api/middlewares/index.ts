@@ -39,6 +39,11 @@ export default class AddressBookApiMiddleware
       const owner = req.userId as string
       const { id } = req.params
 
+      if (typeof id !== 'string' || !id) {
+        res.status(400).json({ message: 'Contact id is required' })
+        return
+      }
+
       const contact = await this._getContact(id)
 
       if (!contact) {

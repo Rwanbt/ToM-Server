@@ -87,7 +87,7 @@ function interpolate(template: string, vars: Record<string, unknown>): string {
 
 export function resolveMessage(locale: string, code: string, context: Record<string, unknown> = {}): string {
   // Try exact locale, then base language (e.g., "fr" from "fr-FR"), then fallback
-  const baseLocale = locale.split("-")[0];
+  const baseLocale = locale.split("-")[0] ?? "en";
   const dict = dictionaries.get(locale) ?? dictionaries.get(baseLocale) ?? dictionaries.get("en");
 
   const template = dict?.[code] ?? code;

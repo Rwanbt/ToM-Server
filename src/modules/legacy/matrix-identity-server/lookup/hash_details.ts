@@ -10,14 +10,19 @@ const hashDetails = <T extends string = never>(
       idServer.db
         .get('keys', ['data'], { name: 'pepper' })
         .then((rows) => {
+          const pepper = rows?.[0]?.data
+          if (typeof pepper !== 'string' || !pepper) {
+            send(res, 500, errMsg('unknown'))
+            return
+          }
           send(res, 200, {
             algorithms: supportedHashes,
-            lookup_pepper: rows[0].data
+            lookup_pepper: pepper
           })
         })
-        .catch((e) => {
+        .catch(() => {
           /* istanbul ignore next */
-          send(res, 500, errMsg('unknown', e))
+          send(res, 500, errMsg('unknown'))
         })
     })
   }

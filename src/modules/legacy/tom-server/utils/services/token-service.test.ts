@@ -4,7 +4,14 @@ import { type Config } from '../../types'
 import TokenService from './token-service'
 import type { LoginFlow } from '../../types'
 
-global.fetch = mock(
+// Bun's fetch includes a preconnect method: keep the test replacement
+// structurally compatible instead of casting away the global fetch contract.
+function mockFetch(implementation?: () => Promise<Response>) {
+  const mocked = implementation ? mock(implementation) : mock()
+  return Object.assign(mocked, { preconnect: () => {} })
+}
+
+global.fetch = mockFetch(
   async () =>
     await Promise.resolve({
       json: async () => await Promise.resolve({ access_token: 'demo_token' })
@@ -35,7 +42,7 @@ describe('the Token service', () => {
 
   describe('the getOidcProvider method', () => {
     it('should return the oidc provider', async () => {
-      global.fetch = mock(
+      global.fetch = mockFetch(
         async () =>
           await Promise.resolve({
             json: async () =>
@@ -60,7 +67,7 @@ describe('the Token service', () => {
     })
 
     it('should return null if no oidc provider is found', async () => {
-      global.fetch = mock(
+      global.fetch = mockFetch(
         async () =>
           await Promise.resolve({
             json: async () =>
@@ -79,7 +86,7 @@ describe('the Token service', () => {
     })
 
     it("should return null if the sso login flow doesn't have any providers", async () => {
-      global.fetch = mock(
+      global.fetch = mockFetch(
         async () =>
           await Promise.resolve({
             json: async () =>
@@ -98,7 +105,7 @@ describe('the Token service', () => {
     })
 
     it('should return null if the response had an error', async () => {
-      global.fetch = mock(
+      global.fetch = mockFetch(
         async () =>
           await Promise.resolve({
             json: async () =>
@@ -113,7 +120,7 @@ describe('the Token service', () => {
     })
 
     it('should return null if something wrong happens while fetching', async () => {
-      global.fetch = mock(
+      global.fetch = mockFetch(
         async () => await Promise.reject(new Error('API is down'))
       )
       const result = await tokenService.getOidcProvider()
@@ -124,7 +131,7 @@ describe('the Token service', () => {
 
   describe('the getOidcRedirectLocation method', () => {
     it('should return the location and cleaned cookies from the redirection response', async () => {
-      global.fetch = mock(
+      global.fetch = mockFetch(
         async () =>
           await Promise.resolve({
             headers: {
@@ -151,7 +158,7 @@ describe('the Token service', () => {
     })
 
     it('should strip cookie attributes and handle a single cookie', async () => {
-      global.fetch = mock(
+      global.fetch = mockFetch(
         async () =>
           await Promise.resolve({
             headers: {
@@ -177,7 +184,7 @@ describe('the Token service', () => {
     })
 
     it('should return null if something wrong happens', async () => {
-      global.fetch = mock(
+      global.fetch = mockFetch(
         async () => await Promise.reject(new Error('API is down'))
       )
 
@@ -187,7 +194,7 @@ describe('the Token service', () => {
     })
 
     it('should return null if session cookies were missing from the headers', async () => {
-      global.fetch = mock(
+      global.fetch = mockFetch(
         async () =>
           await Promise.resolve({
             headers: {
@@ -208,7 +215,7 @@ describe('the Token service', () => {
     })
 
     it('should return null if location header was missing', async () => {
-      global.fetch = mock(
+      global.fetch = mockFetch(
         async () =>
           await Promise.resolve({
             headers: {
@@ -226,7 +233,7 @@ describe('the Token service', () => {
 
   describe('the getLoginToken method', () => {
     it('should extract the login token from the callback response body', async () => {
-      global.fetch = mock()
+      global.fetch = mockFetch()
         // Step 1: auth provider returns redirect to Matrix callback
         .mockResolvedValueOnce({
           headers: {
@@ -265,7 +272,7 @@ describe('the Token service', () => {
     })
 
     it('should extract the login token from the callback redirect URL', async () => {
-      global.fetch = mock()
+      global.fetch = mockFetch()
         .mockResolvedValueOnce({
           headers: {
             get: (header: string) =>
@@ -294,7 +301,7 @@ describe('the Token service', () => {
     })
 
     it('should return null if callback URL origin does not match Matrix server', async () => {
-      global.fetch = mock().mockResolvedValueOnce({
+      global.fetch = mockFetch().mockResolvedValueOnce({
         headers: {
           get: (header: string) =>
             header === 'location'
@@ -315,7 +322,7 @@ describe('the Token service', () => {
     })
 
     it('should return null if auth provider does not redirect', async () => {
-      global.fetch = mock().mockResolvedValueOnce({
+      global.fetch = mockFetch().mockResolvedValueOnce({
         headers: { get: () => null }
       } as unknown as Response)
 
@@ -329,7 +336,7 @@ describe('the Token service', () => {
     })
 
     it('should return null if something wrong happens', async () => {
-      global.fetch = mock(
+      global.fetch = mockFetch(
         async () => await Promise.reject(new Error('API is down'))
       )
 
@@ -343,7 +350,7 @@ describe('the Token service', () => {
     })
 
     it("should return null if the callback response didn't include a loginToken", async () => {
-      global.fetch = mock()
+      global.fetch = mockFetch()
         .mockResolvedValueOnce({
           headers: {
             get: (header: string) =>
@@ -367,7 +374,7 @@ describe('the Token service', () => {
     })
 
     it('should fall through to body when redirect URL has no loginToken', async () => {
-      global.fetch = mock()
+      global.fetch = mockFetch()
         .mockResolvedValueOnce({
           headers: {
             get: (header: string) =>
@@ -397,7 +404,7 @@ describe('the Token service', () => {
     })
 
     it('should return null if the Matrix callback request fails', async () => {
-      global.fetch = mock()
+      global.fetch = mockFetch()
         .mockResolvedValueOnce({
           headers: {
             get: (header: string) =>
@@ -420,7 +427,7 @@ describe('the Token service', () => {
 
   describe('the requestAccessToken method', () => {
     it('should request an access_token using the provided loginToken', async () => {
-      global.fetch = mock(
+      global.fetch = mockFetch(
         async () =>
           await Promise.resolve({
             json: async () =>
@@ -434,7 +441,7 @@ describe('the Token service', () => {
     })
 
     it('should call the login API using the correct payload', async () => {
-      global.fetch = mock(
+      global.fetch = mockFetch(
         async () =>
           await Promise.resolve({
             json: async () =>
@@ -462,7 +469,7 @@ describe('the Token service', () => {
     })
 
     it('should return null if something wrong happens', async () => {
-      global.fetch = mock(
+      global.fetch = mockFetch(
         async () => await Promise.reject(new Error('API is down'))
       )
 
@@ -472,7 +479,7 @@ describe('the Token service', () => {
     })
 
     it("should return null if the response didn't include an access_token", async () => {
-      global.fetch = mock(
+      global.fetch = mockFetch(
         async () =>
           await Promise.resolve({
             json: async () =>
@@ -486,7 +493,7 @@ describe('the Token service', () => {
     })
 
     it('should return null if the response had an error', async () => {
-      global.fetch = mock(
+      global.fetch = mockFetch(
         async () =>
           await Promise.resolve({
             json: async () => await Promise.resolve({ error: 'something' })
@@ -501,7 +508,7 @@ describe('the Token service', () => {
 
   describe('the getAuthCookie method', () => {
     it('should return a cleaned cookie from the auth provider response', async () => {
-      global.fetch = mock()
+      global.fetch = mockFetch()
         // First call: _getAuthProviderLoginToken
         .mockResolvedValueOnce({
           json: async () => ({ token: 'csrf_token_123' })
@@ -524,7 +531,7 @@ describe('the Token service', () => {
     })
 
     it('should return null if the auth provider does not return a token', async () => {
-      global.fetch = mock().mockResolvedValueOnce({
+      global.fetch = mockFetch().mockResolvedValueOnce({
         json: async () => ({})
       } as unknown as Response)
 
@@ -537,7 +544,7 @@ describe('the Token service', () => {
     })
 
     it('should return null if the auth provider does not set cookies', async () => {
-      global.fetch = mock()
+      global.fetch = mockFetch()
         .mockResolvedValueOnce({
           json: async () => ({ token: 'csrf_token_123' })
         } as unknown as Response)
@@ -554,7 +561,7 @@ describe('the Token service', () => {
     })
 
     it('should POST credentials with the CSRF token from the auth provider', async () => {
-      global.fetch = mock()
+      global.fetch = mockFetch()
         .mockResolvedValueOnce({
           json: async () => ({ token: 'csrf_token_123' })
         } as unknown as Response)
@@ -681,6 +688,39 @@ describe('the Token service', () => {
       const result = await tokenService.getAccessTokenWithCookie('loginToken')
 
       expect(result).toBeNull()
+    })
+  })
+
+  describe('authentication diagnostics privacy', () => {
+    const secret = 'oidc-cookie-bearer-secret-not-for-logs-974'
+
+    it('does not log an upstream OIDC discovery exception carrying credentials', async () => {
+      loggerMock.error.mockClear()
+      global.fetch = mockFetch(async () => { throw new Error(secret) })
+
+      expect(await tokenService.getOidcProvider()).toBeNull()
+      expect(loggerMock.error).toHaveBeenCalled()
+      expect(Bun.inspect(loggerMock.error.mock.calls)).not.toContain(secret)
+    })
+
+    it('does not log an upstream auth-provider CSRF exception carrying credentials', async () => {
+      loggerMock.error.mockClear()
+      global.fetch = mockFetch(async () => { throw new Error(secret) })
+
+      expect(await tokenService.getAuthCookie('admin', 'password')).toBeNull()
+      expect(loggerMock.error).toHaveBeenCalled()
+      expect(Bun.inspect(loggerMock.error.mock.calls)).not.toContain(secret)
+    })
+
+    it('does not log an upstream password-login exception carrying credentials', async () => {
+      loggerMock.error.mockClear()
+      global.fetch = mockFetch()
+        .mockResolvedValueOnce({ json: async () => ({ token: 'csrf' }) } as Response)
+        .mockRejectedValueOnce(new Error(secret))
+
+      expect(await tokenService.getAuthCookie('admin', 'password')).toBeNull()
+      expect(loggerMock.error).toHaveBeenCalled()
+      expect(Bun.inspect(loggerMock.error.mock.calls)).not.toContain(secret)
     })
   })
 })

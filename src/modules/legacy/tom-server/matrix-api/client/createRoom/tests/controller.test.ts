@@ -1,7 +1,7 @@
 import { describe, expect, it, mock, test } from 'bun:test'
 import express, { type NextFunction } from 'express'
 import bodyParser from 'body-parser'
-import { TwakeLogger } from '../../../../../logger'
+import { type TwakeLogger } from '../../../../../logger'
 import type {
   AuthenticationFunction,
   AuthRequest,

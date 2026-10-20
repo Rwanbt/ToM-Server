@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, mock, test } from 'bun:test'
 import type { AuthRequest } from '../../types'
 import type { Response, NextFunction } from 'express'
 import Middleware from '../middlewares'
-import { type MatrixDBBackend } from '../../../../matrix-identity-server'
+import { type MatrixDBBackend } from '../../../matrix-identity-server'
 import { type TwakeLogger } from '../../../logger'
 
 let mockRequest: Partial<AuthRequest>

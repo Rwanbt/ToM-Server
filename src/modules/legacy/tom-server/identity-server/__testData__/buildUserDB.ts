@@ -110,7 +110,12 @@ const buildUserDB = (conf: Config, recreate?: boolean): Promise<void> => {
                           return
                         }
 
-                        matrixDb.run(profileInserts[index], (err) => {
+                        const profileInsert = profileInserts[index]
+                        if (!profileInsert) {
+                          reject(new Error('Missing profile seed query'))
+                          return
+                        }
+                        matrixDb.run(profileInsert, (err: Error | null) => {
                           if (err != null) {
                             reject(err)
                           } else {
@@ -126,7 +131,12 @@ const buildUserDB = (conf: Config, recreate?: boolean): Promise<void> => {
                 return
               }
 
-              matrixDb.run(matrixUserInserts[index], (err) => {
+              const matrixUserInsert = matrixUserInserts[index]
+              if (!matrixUserInsert) {
+                reject(new Error('Missing Matrix user seed query'))
+                return
+              }
+              matrixDb.run(matrixUserInsert, (err: Error | null) => {
                 if (err != null) {
                   reject(err)
                 } else {

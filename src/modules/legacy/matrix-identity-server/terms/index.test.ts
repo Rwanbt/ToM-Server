@@ -45,6 +45,7 @@ describe('Terms', () => {
 
     const baseConf: Config = {
       ...DefaultConfig,
+      matrix_database_engine: 'sqlite',
       database_engine: 'sqlite',
       database_host: ':memory:',
       userdb_engine: 'sqlite',
@@ -68,6 +69,7 @@ describe('Terms', () => {
     const app = express()
     const baseConf: Config = {
       ...DefaultConfig,
+      matrix_database_engine: 'sqlite',
       database_engine: 'sqlite',
       database_host: './test.db',
       userdb_engine: 'sqlite',

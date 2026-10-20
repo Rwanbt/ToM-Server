@@ -19,26 +19,29 @@ export const Authenticate = (
   const tokenRe = /^Bearer (\S+)$/
   return (req, res, callbackMethod) => {
     const request = req as AuthRequest
-    const remoteAddress = trustXForwardedForHeader
-      ? // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-        (request.headers['x-forwarded-for'] as string) ||
-        (request.socket.remoteAddress as string)
-      : (request.socket.remoteAddress as string)
-
-    const parsedAdressArray = remoteAddress.split(':')
-    const originalRequesterIPAddress =
-      parsedAdressArray[parsedAdressArray.length - 1]
+    // Matrix permits access_token in the query. Never include that query in
+    // structured request logs, even on an authorization failure.
+    const safeEndpointPath = request.originalUrl?.split('?')[0] ?? ''
+    // Keep an IPv6 address intact: splitting on ':' discards most of it.
+    // Only a deployment explicitly trusting its reverse proxy may inspect
+    // X-Forwarded-For, and the originating hop is the first comma-separated IP.
+    const forwarded = trustXForwardedForHeader ? request.headers['x-forwarded-for'] : undefined
+    const originalRequesterIPAddress = (
+      typeof forwarded === 'string' && forwarded.trim()
+        ? forwarded.split(',')[0]?.trim()
+        : request.socket.remoteAddress
+    ) ?? ''
 
     logger.info('', {
       ip: originalRequesterIPAddress,
       httpMethod: request.method,
-      endpointPath: request.originalUrl
+      endpointPath: safeEndpointPath
     })
     try {
       const requesterIPAddress = convertToIPv6(originalRequesterIPAddress)
       logger.debug(`Authenticated request from ${originalRequesterIPAddress}`)
       // istanbul ignore if
-      if (trustedServersListAsIPv6.includes(requesterIPAddress)) {
+      if (trustedServersListAsIPv6.some(ip => ip.correctForm() === requesterIPAddress.correctForm())) {
         logger.debug('IP is in list')
         callbackMethod({ sub: '', epoch: 0 }, tokenTrustedServer)
       } else if (
@@ -55,17 +58,29 @@ export const Authenticate = (
         if (req.headers.authorization != null) {
           const re = req.headers.authorization.match(tokenRe)
           if (re != null) {
-            token = re[1]
+            token = re[1] ?? null
           }
-          // @ts-expect-error req.query exists
-        } else if (req.query && Object.keys(req.query).length > 0) {
-          // @ts-expect-error req.query.access_token may be null
-          token = req.query.access_token
+        } else {
+          const query = (req as unknown as { query?: { access_token?: unknown } }).query
+          if (typeof query?.access_token === 'string' && query.access_token.length > 0) {
+            token = query.access_token
+          }
         }
         if (token != null) {
           db.get('accessTokens', ['data'], { id: token })
             .then((rows) => {
-              callbackMethod(JSON.parse(rows[0].data as string), token)
+              const stored = rows?.[0]?.data
+              if (typeof stored !== 'string') {
+                send(res, 401, errMsg('unAuthorized'))
+                return
+              }
+              const parsed: unknown = JSON.parse(stored)
+              if (!parsed || typeof parsed !== 'object' || !('sub' in parsed) ||
+                typeof parsed.sub !== 'string' || !parsed.sub) {
+                send(res, 401, errMsg('unAuthorized'))
+                return
+              }
+              callbackMethod(parsed as tokenContent, token)
             })
             .catch((e) => {
               send(res, 401, errMsg('unAuthorized'))
@@ -74,15 +89,12 @@ export const Authenticate = (
           send(res, 401, errMsg('unAuthorized'))
         }
       }
-    } catch (error) {
-      logger.debug(
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        `Real error: ${error instanceof Error ? error.message : error}`
-      )
+    } catch {
+      logger.debug('Unable to authorize federated identity request')
       logger.error(`Unauthorized`, {
         ip: originalRequesterIPAddress,
         httpMethod: request.method,
-        endpointPath: request.originalUrl
+        endpointPath: safeEndpointPath
       })
       send(res, 401, errMsg('unAuthorized'))
     }

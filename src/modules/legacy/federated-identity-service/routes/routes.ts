@@ -164,10 +164,12 @@ export default (
   const defaultPostEndpoints = Object.keys(api.post)
 
   defaultGetEndpoints.forEach((k) => {
-    routes.route(k).get(api.get[k])
+    const handler = api.get[k]
+    if (handler) routes.route(k).get(handler)
   })
   defaultPostEndpoints.forEach((k) => {
-    routes.route(k).post(api.post[k])
+    const handler = api.post[k]
+    if (handler) routes.route(k).post(handler)
   })
 
   const allDefaultEndpoints = [

@@ -26,7 +26,7 @@ const loggerMock = {
   warn: mock()
 }
 
-const nextFunction: NextFunction = mock()
+const nextFunction = mock()
 const middleware = new Middleware(
   dbMock as unknown as TwakeDB,
   loggerMock as unknown as TwakeLogger,

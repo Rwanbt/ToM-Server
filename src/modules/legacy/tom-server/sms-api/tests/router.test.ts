@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/consistent-type-assertions */
 import { afterAll, beforeAll, beforeEach, describe, expect, it, mock, spyOn, test } from 'bun:test'
-import { type ConfigDescription } from '../../../../config-parser'
+import { type ConfigDescription } from '../../../config-parser'
 import { type TwakeLogger } from '../../../logger'
 import { IdentityServerDb, type MatrixDB } from '../../../matrix-identity-server'
 import bodyParser from 'body-parser'
@@ -32,7 +32,7 @@ const middlewareSpy = mock().mockImplementation((_req, _res, next) => {
 })
 
 spyOn(IdentityServerDb.prototype, 'get')
-  .mockResolvedValue([{ data: '"test"' }])
+  .mockResolvedValue([{ data: JSON.stringify({ sub: '@test:example.org', epoch: Date.now() }) }])
 
 let idServer: IdServer
 
@@ -79,7 +79,7 @@ describe('SMS API Router', () => {
         rate_limiting_nb_requests: 100,
         sms_api_key: 'test',
         sms_api_login: 'test',
-        sms_api_url: 'http://url/',
+        sms_api_url: 'https://url/',
         template_dir: 'assets/templates',
         userdb_host: ':memory:',
         features: {
@@ -115,7 +115,7 @@ describe('SMS API Router', () => {
     middlewareSpy.mockClear()
   })
 
-  it('should reject if more than 100 requests are done in less than 10 seconds', { timeout: 30000 }, async () => {
+  it('should reject if more than 100 requests are done in less than 10 seconds', async () => {
     let response
     let token
     // eslint-disable-next-line @typescript-eslint/no-for-in-array, @typescript-eslint/no-unused-vars
@@ -125,7 +125,7 @@ describe('SMS API Router', () => {
     }
     expect((response as Response).statusCode).toEqual(429)
     await new Promise((resolve) => setTimeout(resolve, 11000))
-  })
+  }, 30000)
 
   it('should not call the middleware if the Bearer token is not set', async () => {
     const response = await supertest(app).post(PATH)
@@ -133,8 +133,7 @@ describe('SMS API Router', () => {
     expect(middlewareSpy).not.toHaveBeenCalled()
     expect(response.status).toBe(401)
     expect(mockLogger.warn).toHaveBeenCalledWith(
-      'Access tried without token',
-      expect.anything()
+      'Access tried without token'
     )
   })
 

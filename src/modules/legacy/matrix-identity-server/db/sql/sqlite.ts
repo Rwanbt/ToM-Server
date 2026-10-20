@@ -10,6 +10,17 @@ export type SQLiteDatabase = Database
 
 export type SQLiteStatement = Statement
 
+// SQLite error messages can contain portions of raw SQL and user-controlled
+// values. Emit only the driver code; never serialize the original exception
+// into production logs for operations processing credentials or private data.
+const safeSqlErrorCode = (error: unknown): string => {
+  if (error && typeof error === 'object' && 'code' in error &&
+      typeof error.code === 'string' && /^SQLITE_[A-Z_]+$/.test(error.code)) {
+    return error.code
+  }
+  return 'SQLITE_ERROR'
+}
+
 class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
   declare db?: SQLiteDatabase
   createDatabases(
@@ -69,16 +80,14 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
         reject(new Error('DB not ready'))
         return
       }
-      this.logger.debug('[SQLite][rawQuery] Executing query', { query })
+      // Raw SQL may embed credentials rather than bound parameters.
+      this.logger.debug('[SQLite][rawQuery] Executing query')
       this.db.run(query, (err) => {
         if (err == null) {
-          this.logger.debug('[SQLite][rawQuery] Query successful', { query })
+          this.logger.debug('[SQLite][rawQuery] Query successful')
           resolve()
         } else {
-          this.logger.error('[SQLite][rawQuery] Query failed', {
-            query,
-            error: err
-          })
+          this.logger.error('[SQLite][rawQuery] Query failed', { errorCode: safeSqlErrorCode(err) })
           reject(err)
         }
       })
@@ -102,9 +111,9 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
       }
       const names: string[] = []
       const vals: Array<string | number> = []
-      Object.keys(values).forEach((k) => {
+      Object.entries(values).forEach(([k, v]) => {
         names.push(k)
-        vals.push(values[k])
+        vals.push(v)
       })
       const query = `INSERT INTO ${table}(${names.join(',')}) VALUES(${names
         .map((v) => '?')
@@ -123,9 +132,8 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
             this.logger.error('[SQLite][insert] Failed', {
               table,
               fields: names,
-              values: vals,
               query,
-              error: err
+              errorCode: safeSqlErrorCode(err)
             })
             reject(err)
           } else {
@@ -163,9 +171,9 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
       }
       const names: string[] = []
       const vals: Array<string | number> = []
-      Object.keys(values).forEach((k) => {
+      Object.entries(values).forEach(([k, v]) => {
         names.push(k)
-        vals.push(values[k])
+        vals.push(v)
       })
       vals.push(value)
       const query = `UPDATE ${table} SET ${names.join(
@@ -326,11 +334,11 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
                 filterFields[key].toString() !== [].toString()
             )
             .forEach((key) => {
+              const filterValue = filterFields[key]
+              if (filterValue == null) return
               localCondition += localCondition !== '' ? ' AND ' : ''
-              if (Array.isArray(filterFields[key])) {
-                localCondition += `(${(
-                  filterFields[key] as Array<string | number>
-                )
+              if (Array.isArray(filterValue)) {
+                localCondition += `(${filterValue
                   .map((val) => {
                     index++
                     values.push(val.toString())
@@ -339,7 +347,7 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
                   .join(' OR ')})`
               } else {
                 index++
-                values.push(filterFields[key].toString())
+                values.push(filterValue.toString())
                 localCondition += `${key}${op}$${index}`
               }
             })
@@ -419,7 +427,7 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
                 fields,
                 condition,
                 query,
-                error: err
+                errorCode: safeSqlErrorCode(err)
               })
               reject(err)
             } else {
@@ -606,11 +614,11 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
                 filterFields[key].toString() !== [].toString()
             )
             .forEach((key) => {
+              const filterValue = filterFields[key]
+              if (filterValue == null) return
               localCondition += localCondition !== '' ? ' AND ' : ''
-              if (Array.isArray(filterFields[key])) {
-                localCondition += `(${(
-                  filterFields[key] as Array<string | number>
-                )
+              if (Array.isArray(filterValue)) {
+                localCondition += `(${filterValue
                   .map((val) => {
                     index++
                     values.push(val.toString())
@@ -619,7 +627,7 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
                   .join(' OR ')})`
               } else {
                 index++
-                values.push(filterFields[key].toString())
+                values.push(filterValue.toString())
                 localCondition += `${key}${op}$${index}`
               }
             })
@@ -670,13 +678,8 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
         )}, ${minmax}(${targetField}) AS max_${targetFieldAlias} FROM ${tables.join(
           ','
         )} ${condition} HAVING COUNT(*) > 0` // HAVING COUNT(*) > 0 is to avoid returning a row with NULL values
-        this.logger.debug(`Executing ${minmax} query`, {
-          tables,
-          targetField,
-          fields,
-          condition,
-          query
-        })
+        // SQL may include inlined join values (identity tokens and private data).
+        this.logger.debug(`Executing ${minmax} query`)
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment, @typescript-eslint/prefer-ts-expect-error
         // @ts-ignore never undefined
         const stmt = this.db.prepare(query)
@@ -686,12 +689,7 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
             /* istanbul ignore if */
             if (err != null) {
               this.logger.error(`${minmax} query failed`, {
-                tables,
-                targetField,
-                fields,
-                condition,
-                query,
-                error: err
+                errorCode: safeSqlErrorCode(err)
               })
               reject(err)
             } else {
@@ -706,8 +704,7 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
         stmt.finalize((err) => {
           if (err) {
             this.logger.error(`${minmax} statement finalize failed`, {
-              tables,
-              error: err
+              errorCode: safeSqlErrorCode(err)
             })
             reject(err)
           }
@@ -830,13 +827,7 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
         const query = `SELECT ${fields.join(
           ','
         )} FROM ${table} WHERE ${condition}`
-        this.logger.debug('[SQLite][match] Executing LIKE query', {
-          table,
-          searchFields,
-          value,
-          fields,
-          query
-        })
+        this.logger.debug('[SQLite][match] Executing LIKE query')
         const stmt = this.db.prepare(query)
         stmt.all(
           values,
@@ -844,11 +835,7 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
             /* istanbul ignore if */
             if (err != null) {
               this.logger.error('[SQLite][match] Query failed', {
-                table,
-                searchFields,
-                value,
-                query,
-                error: err
+                errorCode: safeSqlErrorCode(err)
               })
               reject(err)
             } else {
@@ -863,8 +850,7 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
         stmt.finalize((err) => {
           if (err) {
             this.logger.error('[SQLite][match] Statement finalize failed', {
-              table,
-              error: err
+              errorCode: safeSqlErrorCode(err)
             })
             reject(err)
           }
@@ -1084,9 +1070,8 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
                 table,
                 conditions: filters,
                 operators,
-                values,
                 query,
-                error: err
+                errorCode: safeSqlErrorCode(err)
               })
               reject(err)
             } else {

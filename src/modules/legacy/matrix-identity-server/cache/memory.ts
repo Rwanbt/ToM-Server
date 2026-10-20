@@ -11,7 +11,7 @@ class MemoryCache implements CacheType {
     this.ready = Promise.resolve()
   }
 
-  async get(key: string) {
+  async get(key: string): Promise<DbGetResult | null> {
     const entry = this.items.get(key)
     if (entry === undefined) return null
     if (Date.now() > entry.expires) {
@@ -21,7 +21,7 @@ class MemoryCache implements CacheType {
     return entry.value
   }
 
-  async set(key: string, value: DbGetResult) {
+  async set(key: string, value: DbGetResult): Promise<void> {
     this.items.set(key, { value, expires: Date.now() + this.ttl })
   }
 }

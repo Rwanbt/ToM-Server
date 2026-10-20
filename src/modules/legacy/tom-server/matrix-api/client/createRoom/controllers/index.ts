@@ -1,5 +1,5 @@
-import { TwakeLogger } from '../../../../../logger/index'
-import { AuthRequest, Config } from '../../../../types'
+import { type TwakeLogger } from '../../../../../logger/index'
+import { type AuthRequest, type Config } from '../../../../types'
 import type { NextFunction, Response } from 'express'
 import RoomService from '../services'
 

@@ -34,8 +34,15 @@ abstract class SQL<T extends string> {
       if (value !== null && value !== undefined) args.push({ [field]: value });
       // @ts-expect-error implemented later
       this.get(...args)
-        .then((rows: Array<Record<string, string>>) => {
-          resolve(parseInt(rows[0].count, 10));
+        .then((rows: Array<Record<string, string | number>>) => {
+          const count = rows?.[0]?.count;
+          const parsed = typeof count === "number" ? count :
+            typeof count === "string" && /^\d+$/.test(count) ? Number(count) : NaN;
+          if (!Number.isSafeInteger(parsed) || parsed < 0) {
+            reject(new Error("Database count response is missing or malformed"));
+            return;
+          }
+          resolve(parsed);
         })
         .catch((e: any) => {
           /* istanbul ignore next */

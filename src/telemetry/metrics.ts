@@ -11,11 +11,13 @@
  * cannot infer. Add metrics here only when they represent a domain concept
  * (e.g., lookup hit rate, hash rotation count) — not generic HTTP/DB stats.
  */
-import { type Meter, metrics } from "@opentelemetry/api";
+import { type Counter, type Meter, metrics } from "@opentelemetry/api";
 
 const meter: Meter = metrics.getMeter("tom");
 
-export const appMetrics = {
+export const appMetrics: {
+  lookupHits: Counter;
+} = {
   /**
    * Example of a custom metric.
    * Number of 3PID lookups that returned at least one mapping.

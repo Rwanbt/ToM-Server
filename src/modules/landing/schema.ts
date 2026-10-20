@@ -8,6 +8,10 @@ const defaultPath = (): string => {
   return resolve(prefix, "twake", "chat", "tom", "static", "landing.html");
 };
 
-export const landingSettingsSchema = z.object({
+type LandingSettingsShape = {
+  file_path: z.ZodDefault<z.ZodString>;
+};
+
+export const landingSettingsSchema: z.ZodObject<LandingSettingsShape> = z.object({
   file_path: z.string().default(defaultPath()),
 });

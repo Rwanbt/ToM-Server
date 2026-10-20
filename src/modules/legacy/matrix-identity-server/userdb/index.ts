@@ -96,7 +96,7 @@ class UserDB implements UserDBBackend {
     table: Collections,
     fields?: string[],
     filterFields?: Record<string, string | number | string[]>
-  ) {
+  ): Promise<DbGetResult> {
     return this.db.get(table, fields, filterFields)
   }
 
@@ -107,7 +107,7 @@ class UserDB implements UserDBBackend {
     searchFields: string[],
     value: string | number,
     order?: string
-  ) {
+  ): Promise<DbGetResult> {
     if (typeof order !== 'string' || !/^[\w-]+$/.test(order)) order = undefined
     return this.db.match(table, fields, searchFields, value, order)
   }

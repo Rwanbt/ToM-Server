@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, mock, spyOn, test } from 'bun:test'
-import { type ConfigDescription } from '../../../../config-parser'
+import { type ConfigDescription } from '../../../config-parser'
 import { IdentityServerDb, type MatrixDB } from '../../../matrix-identity-server'
 import express from 'express'
 import fs from 'fs'
@@ -13,7 +13,7 @@ import router, { PATH } from '../routes'
 
 const app = express()
 
-spyOn(IdentityServerDb.prototype, 'get').mockResolvedValue([{ data: '"test"' }])
+spyOn(IdentityServerDb.prototype, 'get').mockResolvedValue([{ data: JSON.stringify({ sub: '@test:example.org', epoch: Date.now() }) }])
 
 const matrixDBMock: Partial<MatrixDB> = {
   get: mock().mockResolvedValue([{ displayname: '', avatar_url: 'avatar_url' }])
@@ -81,7 +81,7 @@ describe('the user info API Router', () => {
     })
   })
 
-  it('should reject if more than 100 requests are done in less than 10 seconds', { timeout: 30000 }, async () => {
+  it('should reject if more than 100 requests are done in less than 10 seconds', async () => {
     let response
     let token
     // eslint-disable-next-line @typescript-eslint/no-for-in-array, @typescript-eslint/no-unused-vars
@@ -93,7 +93,7 @@ describe('the user info API Router', () => {
     }
     expect((response as Response).statusCode).toEqual(429)
     await new Promise((resolve) => setTimeout(resolve, 11000))
-  })
+  }, 30000)
 
   it('should call the ldap check middleware', async () => {
     const nonLdapApp = express()

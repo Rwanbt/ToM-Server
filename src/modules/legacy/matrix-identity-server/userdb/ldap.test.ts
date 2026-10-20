@@ -104,7 +104,7 @@ const entryMatches = (
     )
   }
   const match = /^\(([^=]+)=([^)]*)\)$/.exec(filter)
-  if (match != null) {
+  if (match?.[1] !== undefined && match[2] !== undefined) {
     return attrMatches(match[1], match[2], entry)
   }
   return false
@@ -138,6 +138,7 @@ describe('UserDBLDAP', () => {
   let logger: TwakeLogger
   let userDB: UserDBLDAP
   let UserDBLDAPImpl: typeof UserDBLDAP
+  let escapeFilterValue: (value: string, allowWildcard?: boolean) => string
 
   // Helper function to create UserDB instance with default/custom config
   const createUserDB = (overrides?: {
@@ -150,6 +151,7 @@ describe('UserDBLDAP', () => {
       {
         ...defaultConfig,
         database_engine: 'sqlite',
+        matrix_database_engine: 'pg',
         userdb_engine: 'ldap',
         ldap_uri: overrides?.ldapUri ?? LDAP_URI,
         ldap_base: overrides?.ldapBase ?? LDAP_BASE,
@@ -167,6 +169,7 @@ describe('UserDBLDAP', () => {
     }))
     const module = await import('./ldap')
     UserDBLDAPImpl = module.default
+    escapeFilterValue = module.escapeLDAPFilterValue
   })
 
   afterAll(() => {
@@ -212,6 +215,37 @@ describe('UserDBLDAP', () => {
       await userDB.ready
     })
 
+    it('escapes LDAP assertion injection while keeping intentional wildcard patterns', () => {
+      const hostile = 'abc*(uid=*)\\\u0000'
+      expect(escapeFilterValue(hostile)).toBe('abc\\2a\\28uid=\\2a\\29\\5c\\00')
+      expect(escapeFilterValue('abc*', true)).toBe('abc*')
+    })
+
+    it('rejects an injected LDAP attribute instead of broadening a directory lookup', () => {
+      expect(() => userDB.get('', [], { 'uid)(|(objectClass': 'anything' })).toThrow(
+        'Invalid LDAP search attribute'
+      )
+      expect(() => userDB.match('', [], ['uid)(objectClass=*'], 'someone')).toThrow(
+        'Invalid LDAP search attribute'
+      )
+    })
+
+    it('does not disclose a private LDAP search predicate or attribute into logs', async () => {
+      const sentinel = 'PRIVATE_LDAP_CLIENT_VALUE_9c5e'
+      const watches = (['silly', 'debug', 'info', 'warn', 'error'] as const).map(level =>
+        spyOn(logger, level)
+      )
+      try {
+        await userDB.get('', [], { mail: sentinel })
+        await userDB.get('', [], { uid: 'dwho' })
+        const logged = JSON.stringify(watches.flatMap(watch => watch.mock.calls))
+        expect(logged).not.toContain(sentinel)
+        expect(logged).not.toContain('dwho@example.com')
+      } finally {
+        watches.forEach(watch => watch.mockRestore())
+      }
+    })
+
     it('should return results with default fields for exact match', async () => {
       const results = await userDB.get('', [], {
         uid: 'dwho',
@@ -219,7 +253,7 @@ describe('UserDBLDAP', () => {
       })
 
       expect(results).toHaveLength(1)
-      expect(results[0].dn).toBe('cn=dwho,ou=users,o=example')
+      expect(results[0]?.dn).toBe('cn=dwho,ou=users,o=example')
     })
 
     it('should return only requested fields', async () => {
@@ -350,20 +384,20 @@ describe('UserDBLDAP', () => {
       const results = await userDB.getAll('', ['uid'], 'uid')
 
       expect(results).toHaveLength(4)
-      expect(results[0].uid).toBe('asmith')
-      expect(results[1].uid).toBe('dwho')
-      expect(results[2].uid).toBe('jdoe')
-      expect(results[3].uid).toBe('lskywalker')
+      expect(results[0]?.uid).toBe('asmith')
+      expect(results[1]?.uid).toBe('dwho')
+      expect(results[2]?.uid).toBe('jdoe')
+      expect(results[3]?.uid).toBe('lskywalker')
     })
 
     it('should sort results by numeric field when order specified', async () => {
       const results = await userDB.getAll('', ['uid', 'age'], 'age')
 
       expect(results).toHaveLength(4)
-      expect(results[0].uid).toBe('lskywalker') // age 23
-      expect(results[1].uid).toBe('asmith') // age 25
-      expect(results[2].uid).toBe('jdoe') // age 30
-      expect(results[3].uid).toBe('dwho') // age 950
+      expect(results[0]?.uid).toBe('lskywalker') // age 23
+      expect(results[1]?.uid).toBe('asmith') // age 25
+      expect(results[2]?.uid).toBe('jdoe') // age 30
+      expect(results[3]?.uid).toBe('dwho') // age 950
     })
 
     it('should return all fields when fields array contains all attributes', async () => {
@@ -398,7 +432,7 @@ describe('UserDBLDAP', () => {
       })
 
       expect(results).toHaveLength(1)
-      expect(results[0].uid).toBe('dwho')
+      expect(results[0]?.uid).toBe('dwho')
     })
 
     it('should handle filter with undefined values gracefully', async () => {
@@ -413,7 +447,7 @@ describe('UserDBLDAP', () => {
       )
 
       expect(results).toHaveLength(1)
-      expect(results[0].uid).toBe('dwho')
+      expect(results[0]?.uid).toBe('dwho')
     })
 
     it('should handle filter with empty array values gracefully', async () => {
@@ -423,7 +457,7 @@ describe('UserDBLDAP', () => {
       })
 
       expect(results).toHaveLength(1)
-      expect(results[0].uid).toBe('dwho')
+      expect(results[0]?.uid).toBe('dwho')
     })
 
     it('should return empty array for completely non-matching filter', async () => {

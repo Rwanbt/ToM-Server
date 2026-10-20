@@ -24,21 +24,47 @@ const validateMatrixToken = (logger: TwakeLogger) => {
       matrixResolve
         .resolve(matrixServer)
         .then((baseUrl: string | string[]) => {
-          if (typeof baseUrl === 'object') baseUrl = baseUrl[0]
-          fetch(
-            encodeURI(
-              `${baseUrl}_matrix/federation/v1/openid/userinfo?access_token=${accessToken}`
-            )
-          )
+          if (Array.isArray(baseUrl)) baseUrl = baseUrl[0] ?? ''
+          if (!baseUrl) {
+            reject(new Error('Matrix resolver returned no endpoint'))
+            return
+          }
+          // Treat the token as a single parameter. encodeURI() does not
+          // escape '&', '#', '?' and can change the request's meaning.
+          let endpoint: URL
+          try {
+            endpoint = new URL('_matrix/federation/v1/openid/userinfo', baseUrl)
+            const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(endpoint.hostname)
+            if ((endpoint.protocol !== 'https:' && !(endpoint.protocol === 'http:' && loopback)) ||
+                endpoint.username || endpoint.password || endpoint.hash) {
+              reject('Invalid server')
+              return
+            }
+            endpoint.searchParams.set('access_token', accessToken)
+          } catch {
+            reject('Invalid server')
+            return
+          }
+          fetch(endpoint.toString(), {
+            // Never forward a bearer-token URL to a redirect destination.
+            redirect: 'error',
+            signal: AbortSignal.timeout(15000)
+          })
             // eslint-disable-next-line @typescript-eslint/promise-function-async
-            .then((res) => res.json())
+            .then((res) => {
+              if (!res.ok) throw new Error('OpenID verification rejected')
+              return res.json()
+            })
             .then((userInfo) => {
-              if ((userInfo as userInfoResponse).sub != null) {
-                const cmp = (userInfo as userInfoResponse).sub.match(
-                  /^@(.+?):[^:]+$/
-                )
-                if (cmp != null) {
-                  resolve((userInfo as userInfoResponse).sub)
+              if (typeof (userInfo as userInfoResponse).sub === 'string') {
+                const subject = (userInfo as userInfoResponse).sub
+                // A homeserver may authenticate only MXIDs in its requested
+                // authority. Otherwise a hostile server could assert another
+                // homeserver's user ID through OpenID userinfo.
+                const cmp = /^@[^:]+:(.+)$/.exec(subject)
+                if (cmp != null &&
+                    cmp[1]?.toLowerCase() === matrixServer.toLowerCase()) {
+                  resolve(subject)
                 } else {
                   reject('Invalid response from Matrix Server')
                 }
@@ -50,8 +76,9 @@ const validateMatrixToken = (logger: TwakeLogger) => {
               }
             })
             // istanbul ignore next
-            .catch((e) => {
-              logger.warn('Token rejected', e)
+            .catch(() => {
+              // HTTP client exceptions can embed the access_token query string.
+              logger.warn('Token rejected')
               reject('Token rejected')
             })
         })

@@ -101,13 +101,11 @@ const fillTable = <T extends string = never>(
       idServer.conf.mail_link_delay,
       nextLink
     )
-    .then((token) => {
-      void transport.sendMail({
-        to: dst,
-        raw: mailBody(verificationTemplate, dst, token, clientSecret, sid)
-      })
-      idServer.db
-        .insert('mappings', {
+    .then(async (token) => {
+      try {
+        // A session is successful only when its mapping exists and the SMTP
+        // provider has accepted the message. Never fire-and-forget sendMail.
+        await idServer.db.insert('mappings', {
           client_secret: clientSecret,
           address: dst,
           medium: 'email',
@@ -116,21 +114,30 @@ const fillTable = <T extends string = never>(
           session_id: sid,
           send_attempt: sendAttempt
         })
-        .then(() => {
-          send(res, 200, { sid })
+        await transport.sendMail({
+          to: dst,
+          raw: mailBody(verificationTemplate, dst, token, clientSecret, sid)
         })
-        .catch((err) => {
-          // istanbul ignore next
-          idServer.logger.error('Insertion error', err)
-          // istanbul ignore next
-          send(res, 400, errMsg('unknown', err))
-        })
+        send(res, 200, { sid })
+      } catch {
+        idServer.logger.error('Failed to prepare or deliver email verification')
+        // Remove unusable state so clients can safely retry their request.
+        await Promise.allSettled([
+          idServer.db.deleteEqualAnd(
+            'mappings',
+            { field: 'client_secret', value: clientSecret },
+            { field: 'session_id', value: sid }
+          ),
+          idServer.db.deleteToken(token)
+        ])
+        send(res, 503, errMsg('unknown'))
+      }
     })
-    .catch((err) => {
+    .catch(() => {
       /* istanbul ignore next */
-      idServer.logger.error('Token error', err)
+      idServer.logger.error('Token error')
       /* istanbul ignore next */
-      send(res, 400, errMsg('unknown', err))
+      send(res, 400, errMsg('unknown'))
     })
 }
 
@@ -168,15 +175,20 @@ const RequestToken = <T extends string = never>(
                 address: dst
               })
               .then((rows) => {
-                if (rows.length > 0) {
-                  if (sendAttempt === rows[0].send_attempt) {
-                    send(res, 200, { sid: rows[0].session_id })
+                const previous = rows?.[0]
+                if (previous) {
+                  if (typeof previous.session_id !== 'string' || !previous.session_id) {
+                    send(res, 500, errMsg('unknown'))
+                    return
+                  }
+                  if (sendAttempt === previous.send_attempt) {
+                    send(res, 200, { sid: previous.session_id })
                   } else {
                     idServer.db
                       .deleteEqualAnd(
                         'mappings',
                         { field: 'client_secret', value: clientSecret },
-                        { field: 'session_id', value: rows[0].session_id }
+                        { field: 'session_id', value: previous.session_id }
                       )
                       .then(() => {
                         fillTable(
@@ -191,11 +203,11 @@ const RequestToken = <T extends string = never>(
                           nextLink
                         )
                       })
-                      .catch((err) => {
+                      .catch(() => {
                         // istanbul ignore next
-                        idServer.logger.error('Deletion error', err)
+                        idServer.logger.error('Deletion error')
                         // istanbul ignore next
-                        send(res, 400, errMsg('unknown', err))
+                        send(res, 400, errMsg('unknown'))
                       })
                   }
                 } else {
@@ -212,11 +224,11 @@ const RequestToken = <T extends string = never>(
                   )
                 }
               })
-              .catch((err) => {
+              .catch(() => {
                 /* istanbul ignore next */
-                idServer.logger.error('Send_attempt error', err)
+                idServer.logger.error('Send_attempt error')
                 /* istanbul ignore next */
-                send(res, 400, errMsg('unknown', err))
+                send(res, 400, errMsg('unknown'))
               })
           }
         })

@@ -66,7 +66,11 @@ export const getRecoveryWords = (db: TwakeDB): expressAppHandler => {
           )
           throw error
         }
-        res.status(200).json({ words: data[0].words })
+        const record = data[0]
+        if (!record) {
+          throw new VaultAPIError('User has no recovery sentence', 404)
+        }
+        res.status(200).json({ words: record.words })
       })
       .catch((err) => {
         next(err)

@@ -40,6 +40,32 @@ describe('AdminSettingsMiddleware', () => {
   })
 
   describe('checkAdminSettingsToken', () => {
+    it('rejects a missing configured admin credential even if caller supplies Bearer empty', () => {
+      const insecure = new AdminSettingsMiddleware(
+        { ...conf, admin_access_token: '' } as any,
+        logger as any
+      )
+      req.headers.authorization = 'Bearer '
+      insecure.checkAdminSettingsToken(req, res, next)
+      expect(res.status).toHaveBeenCalledWith(503)
+      expect(next).not.toHaveBeenCalled()
+      expect(logger.error).toHaveBeenCalledWith('Admin authentication is not configured')
+    })
+
+    it('rejects short, malformed and whitespace-bearing tokens without calling next', () => {
+      const configured = new AdminSettingsMiddleware(
+        { ...conf, admin_access_token: 'some-secure-secret' } as any,
+        logger as any
+      )
+      for (const value of ['Bearer some-secure-secre', 'Bearer some-secure-secret ', 'Bearer  some-secure-secret']) {
+        res.status.mockClear()
+        next.mockClear()
+        req.headers.authorization = value
+        configured.checkAdminSettingsToken(req, res, next)
+        expect(res.status).toHaveBeenCalledWith(403)
+        expect(next).not.toHaveBeenCalled()
+      }
+    })
     it('should return 401 if Authorization header is missing', () => {
       middleware.checkAdminSettingsToken(req, res, next)
 

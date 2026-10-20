@@ -22,13 +22,17 @@ export default class SmsApiMiddleware implements ISmsApiMiddleware {
     try {
       const { to, text } = req.body
 
-      if (to === undefined || text === undefined || text.length === 0) {
+      if (
+        (typeof to !== 'string' && (!Array.isArray(to) || to.length === 0)) ||
+        typeof text !== 'string' ||
+        text.trim().length === 0
+      ) {
         throw new Error('Missing destination or text')
       }
 
       next()
-    } catch (error) {
-      this.logger.debug('Missing destination or text', { error })
+    } catch {
+      this.logger.debug('Missing destination or text')
       res.status(400).json({ message: 'Bad Request' })
     }
   }
@@ -46,17 +50,22 @@ export default class SmsApiMiddleware implements ISmsApiMiddleware {
 
       const destinations: string[] = Array.isArray(to) ? to : [to]
 
+      if (destinations.length === 0) {
+        throw new Error('Missing destination phone')
+      }
+
       destinations.forEach((destination: string) => {
-        if (!validator.isMobilePhone(destination)) {
-          throw new Error('Invalid destination phone', {
-            cause: `Invalid phone ${destination}`
-          })
+        if (
+          typeof destination !== 'string' ||
+          !validator.isMobilePhone(destination)
+        ) {
+          throw new Error('Invalid destination phone')
         }
       })
 
       next()
-    } catch (error) {
-      this.logger.debug('Invalid phone number provided', { error })
+    } catch {
+      this.logger.debug('Invalid phone number provided')
       res.status(400).json({ message: 'Invalid phone number' })
     }
   }

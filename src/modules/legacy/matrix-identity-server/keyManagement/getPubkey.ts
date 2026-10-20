@@ -6,34 +6,40 @@ const getPubkey = <T extends string = never>(
   idServer: IdentityServerDB<T>
 ): expressAppHandler => {
   return (req, res) => {
-    const _keyID: string = (req as Request).params.keyId
+    const keyID = (req as Request).params.keyId
+    if (typeof keyID !== 'string' || !keyID) {
+      send(res, 400, errMsg('invalidParam', 'keyId is required'))
+      return
+    }
 
     idServer.db
-      .get('shortTermKeypairs', ['public'], { keyID: _keyID })
+      .get('shortTermKeypairs', ['public'], { keyID })
       // eslint-disable-next-line @typescript-eslint/promise-function-async
       .then((rows) => {
-        if (rows.length === 1) {
-          send(res, 200, { public_key: rows[0].public })
+        const key = rows.length === 1 ? rows[0] : undefined
+        if (key && typeof key.public === 'string') {
+          send(res, 200, { public_key: key.public })
         } else {
           return idServer.db
-            .get('longTermKeypairs', ['public'], { keyID: _keyID })
+            .get('longTermKeypairs', ['public'], { keyID })
             .then((rows) => {
-              if (rows.length === 0) {
+              const key = rows[0]
+              if (!key || typeof key.public !== 'string') {
                 send(
                   res,
                   404,
                   errMsg('notFound', 'The public key was not found')
                 )
               } else {
-                send(res, 200, { public_key: rows[0].public })
+                send(res, 200, { public_key: key.public })
               }
             })
         }
       })
-      .catch((e) => {
-        console.error('Error querying keypairs:', e) // Debugging statement
+      .catch(() => {
+        // DB exception text can include credentials: never echo it in logs or HTTP.
         /* istanbul ignore next */
-        send(res, 500, errMsg('unknown', e))
+        send(res, 500, errMsg('unknown'))
       })
   }
 }

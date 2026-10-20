@@ -15,7 +15,8 @@ import type { TwakeLogger } from '../../../logger/index'
 import { type IAddressbookService } from '../../addressbook-api/types'
 import { AddressbookService } from '../../addressbook-api/services'
 
-const getFirstString = (input: string | string[]): string => Array.isArray(input) ? input[0] : input;
+const getFirstString = (input: string | string[] | undefined): string =>
+  Array.isArray(input) ? (input[0] ?? '') : (input ?? '');
 
 class UserInfoService implements IUserInfoService {
   private readonly addressBookService: IAddressbookService
@@ -567,7 +568,8 @@ class UserInfoService implements IUserInfoService {
         ...visibilitySettings
       } as unknown as Record<string, string | number>)) as unknown as UserProfileSettingsT[]
 
-      if (!Array.isArray(r) || r.length === 0) {
+      const insertedSettings = Array.isArray(r) ? r[0] : undefined
+      if (!insertedSettings) {
         this.logger.error(
           '[UserInfoService]._createVisibilitySettings: Database insert returned unexpected result',
           { userId }
@@ -577,7 +579,6 @@ class UserInfoService implements IUserInfoService {
         )
       }
 
-      const insertedSettings = r[0]
       this.logger.info(
         '[UserInfoService]._createVisibilitySettings: Successfully created visibility settings',
         {
@@ -626,7 +627,8 @@ class UserInfoService implements IUserInfoService {
         userId
       )) as unknown as UserProfileSettingsT[]
 
-      if (!Array.isArray(updateResult) || updateResult.length === 0) {
+      const updatedSettings = Array.isArray(updateResult) ? updateResult[0] : undefined
+      if (!updatedSettings) {
         this.logger.error(
           '[UserInfoService]._updateVisibilitySettings: Database update returned unexpected result',
           { userId }
@@ -636,7 +638,6 @@ class UserInfoService implements IUserInfoService {
         )
       }
 
-      const updatedSettings = updateResult[0]
       this.logger.info(
         '[UserInfoService]._updateVisibilitySettings: Successfully updated visibility settings',
         {
@@ -721,14 +722,15 @@ class UserInfoService implements IUserInfoService {
       const existing = (await this.db.get('profileSettings', ['*'], {
         matrix_id: userId
       })) as unknown as UserProfileSettingsT[]
-      if (Array.isArray(existing) && existing.length > 0) {
+      const storedSettings = Array.isArray(existing) ? existing[0] : undefined
+      if (storedSettings) {
         this.logger.info(
           '[UserInfoApiService] Found existing user profile settings ',
           {
             userId
           }
         )
-        return existing[0]
+        return storedSettings
       }
       this.logger.info(`[UserInfoApiService] got nothing`)
       return null

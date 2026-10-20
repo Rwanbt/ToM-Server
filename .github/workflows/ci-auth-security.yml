@@ -1,0 +1,111 @@
+name: Auth security + baseline gates
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  secret-redaction:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: '1.4.3'
+      - run: bun install --frozen-lockfile
+      - name: Enforce deterministic Bun and blocking lint
+        run: node --test ci/toolchain-guard.cjs
+      - name: Exercise real ingress paths with sentinel secrets
+        run: |
+          bun test --isolate \
+            src/modules/legacy/matrix-identity-server/authentication-security.test.ts \
+            src/modules/legacy/tom-server/identity-server/utils/authentication-security.test.ts \
+            src/modules/legacy/utils/json-content-security.test.ts \
+            src/modules/legacy/utils/json-http-security.test.ts \
+            src/modules/legacy/matrix-identity-server/db/token-security.test.ts
+
+  full-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: '1.4.3'
+      - run: bun install --frozen-lockfile
+      # NO continue-on-error: the global suite is currently NOT qualified.
+      - name: All Bun tests — required release gate
+        run: bun test --isolate
+
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: '1.4.3'
+      - run: bun install --frozen-lockfile
+      - name: TypeScript — required release gate
+        run: bun run type-check
+
+  typecheck-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      # Immutable fork baseline. This is a separate checkout so it cannot
+      # inherit changes introduced by the candidate PR.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: 6651bd21a75570c6f659d832afec73cbf4a77fef
+          path: baseline
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: '1.4.3'
+      - run: bun install --frozen-lockfile
+      - run: cd baseline && bun install --frozen-lockfile
+      - run: node --test ci/compare-typecheck.test.cjs ci/fix-type-only-imports.test.cjs
+      - name: Fail on any introduced TypeScript diagnostic
+        shell: bash
+        run: |
+          set +e
+          (cd baseline && bun run type-check) > "$RUNNER_TEMP/baseline-tsc.log" 2>&1
+          baseline_status=$?
+          bun run type-check > "$RUNNER_TEMP/candidate-tsc.log" 2>&1
+          candidate_status=$?
+          set -e
+          if [[ "$baseline_status" -ne 1 ]] ||
+             { [[ "$candidate_status" -ne 0 ]] && [[ "$candidate_status" -ne 1 ]]; }; then
+            echo 'Unexpected TypeScript runner status; refusing unverified comparison' >&2
+            exit 1
+          fi
+          # A successful strict compiler emits no diagnostics. Only inspect
+          # TS1484 locations when the candidate compiler actually failed;
+          # never treat an empty error log as proof when its exit code is 1.
+          if [[ "$candidate_status" -eq 0 ]]; then
+            if grep -Eq 'error TS[0-9]+:' "$RUNNER_TEMP/candidate-tsc.log"; then
+              echo 'Compiler exited successfully but emitted diagnostics' >&2
+              exit 1
+            fi
+          else
+            node ci/fix-type-only-imports.cjs --check --log "$RUNNER_TEMP/candidate-tsc.log"
+          fi
+          node ci/compare-typecheck.cjs \
+            "$RUNNER_TEMP/baseline-tsc.log" "$RUNNER_TEMP/candidate-tsc.log"

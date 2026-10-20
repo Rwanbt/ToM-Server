@@ -62,9 +62,9 @@ export {
 export * as Utils from './utils'
 export { default as UserDBPg } from './userdb/sql/pg'
 export { default as UserDBSQLite } from './userdb/sql/sqlite'
-export const validateMatrixToken = _validateMatrixToken
-export const defaultConfig = defaultConfDesc
-export const Authenticate = utilsAuthenticate
+export const validateMatrixToken: typeof _validateMatrixToken = _validateMatrixToken
+export const defaultConfig: typeof defaultConfDesc = defaultConfDesc
+export const Authenticate: typeof utilsAuthenticate = utilsAuthenticate
 
 export type IdServerAPI = Record<string, expressAppHandler>
 

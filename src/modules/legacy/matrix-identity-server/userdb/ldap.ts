@@ -6,6 +6,25 @@ import { type Config, type DbGetResult } from '../types'
 import { type UserDBBackend } from './index'
 import _ from 'lodash'
 
+/** Escape RFC 4515 assertion metacharacters in untrusted directory values.
+ * Only `get` intentionally supports LDAP wildcard patterns; `match` treats
+ * the user's search text as a literal substring bounded by our own `*`. */
+export function escapeLDAPFilterValue(value: string, allowWildcard = false): string {
+  return value
+    .replace(/\\/g, '\\5c')
+    .replace(/\*/g, allowWildcard ? '*' : '\\2a')
+    .replace(/\(/g, '\\28')
+    .replace(/\)/g, '\\29')
+    .replace(/\0/g, '\\00')
+}
+
+function checkedAttribute(value: string): string {
+  if (!/^[a-zA-Z][a-zA-Z0-9-]*$/.test(value)) {
+    throw new Error('Invalid LDAP search attribute')
+  }
+  return value
+}
+
 class UserDBLDAP implements UserDBBackend {
   base: string
   filter: string
@@ -51,9 +70,7 @@ class UserDBLDAP implements UserDBBackend {
             })
             .catch((e) => {
               this.logger.error(
-                `[UserDBLDAP][ldap] Failed to bind to LDAP server: ${JSON.stringify(
-                  e
-                )}`
+                '[UserDBLDAP][ldap] Failed to bind to LDAP server: credentials withheld'
               )
               reject(e)
             })
@@ -77,9 +94,7 @@ class UserDBLDAP implements UserDBBackend {
           )
           cli.unbind().catch((e) => {
             this.logger.warn(
-              `[UserDBLDAP][constructor] Failed to unbind test client: ${JSON.stringify(
-                e
-              )}`
+              '[UserDBLDAP][constructor] Failed to unbind test client'
             )
           })
           this.logger.info(
@@ -89,9 +104,7 @@ class UserDBLDAP implements UserDBBackend {
         })
         .catch((e) => {
           this.logger.error(
-            `[UserDBLDAP][constructor] LDAP connection test failed: ${JSON.stringify(
-              e
-            )}`
+            '[UserDBLDAP][constructor] LDAP connection test failed'
           )
           this.logger.error(
             `[UserDBLDAP][constructor] Configuration - URI: ${
@@ -114,7 +127,7 @@ class UserDBLDAP implements UserDBBackend {
         order ?? 'none'
       }`
     )
-    this.logger.debug(`[UserDBLDAP][_get] Search filter: ${filter}`)
+    this.logger.debug('[UserDBLDAP][_get] Search filter prepared (values withheld)')
     this.logger.silly(
       `[UserDBLDAP][_get] Requested fields: ${fields?.join(', ') ?? 'all'}`
     )
@@ -141,9 +154,7 @@ class UserDBLDAP implements UserDBBackend {
           this.logger.debug(
             `[UserDBLDAP][_get] Executing LDAP search - base: ${this.base}`
           )
-          this.logger.silly(
-            `[UserDBLDAP][_get] Search options: ${JSON.stringify(opts)}`
-          )
+          this.logger.silly('[UserDBLDAP][_get] Search options prepared (values withheld)')
 
           client
             .search(this.base, opts)
@@ -162,7 +173,7 @@ class UserDBLDAP implements UserDBBackend {
                   }`
                 )
                 this.logger.silly(
-                  `[UserDBLDAP][_get] Raw entry data: ${JSON.stringify(entry)}`
+                  '[UserDBLDAP][_get] Entry received (attributes withheld from logs)'
                 )
 
                 const res: Record<string, string | string[] | number> = {}
@@ -170,35 +181,25 @@ class UserDBLDAP implements UserDBBackend {
                 if (fields != null && fields.length > 0) {
                   fields.forEach((k) => {
                     const rawValue = entry[k]
-                    res[k] = (
-                      _.isBuffer(rawValue)
-                        ? rawValue.toString()
-                        : _.isArray(rawValue)
+                    if (rawValue == null) return
+                    const decoded = _.isBuffer(rawValue)
+                      ? rawValue.toString()
+                      : Array.isArray(rawValue)
                         ? rawValue[0]
                         : rawValue
-                    ) as string
-                    this.logger.silly(
-                      `[UserDBLDAP][_get] Extracted field "${k}": ${JSON.stringify(
-                        res[k]
-                      )}`
-                    )
+                    if (decoded !== undefined) res[k] = decoded as string
                   })
                 } else {
                   Object.keys(entry).forEach((k) => {
                     if (k !== 'controls') {
                       const rawValue = entry[k]
-                      res[k] = (
-                        _.isBuffer(rawValue)
-                          ? rawValue.toString()
-                          : _.isArray(rawValue)
+                      if (rawValue == null) return
+                      const decoded = _.isBuffer(rawValue)
+                        ? rawValue.toString()
+                        : Array.isArray(rawValue)
                           ? rawValue[0]
                           : rawValue
-                      ) as string
-                      this.logger.silly(
-                        `[UserDBLDAP][_get] Extracted field "${k}": ${JSON.stringify(
-                          res[k]
-                        )}`
-                      )
+                      if (decoded !== undefined) res[k] = decoded as string
                     }
                   })
                 }
@@ -234,9 +235,7 @@ class UserDBLDAP implements UserDBBackend {
 
               client.unbind().catch((e) => {
                 this.logger.warn(
-                  `[UserDBLDAP][_get] Failed to unbind client after search: ${JSON.stringify(
-                    e
-                  )}`
+                  '[UserDBLDAP][_get] Failed to unbind client after search'
                 )
               })
 
@@ -247,21 +246,17 @@ class UserDBLDAP implements UserDBBackend {
             })
             .catch((e) => {
               this.logger.error(
-                `[UserDBLDAP][_get] LDAP search operation failed: ${JSON.stringify(
-                  e
-                )}`
+                '[UserDBLDAP][_get] LDAP search operation failed'
               )
               this.logger.error(
-                `[UserDBLDAP][_get] Failed search parameters - base: ${this.base}, filter: ${filter}`
+                '[UserDBLDAP][_get] Failed search parameters (filter withheld)'
               )
               reject(e)
             })
         })
         .catch((e) => {
           this.logger.error(
-            `[UserDBLDAP][_get] Failed to obtain LDAP client: ${JSON.stringify(
-              e
-            )}`
+            '[UserDBLDAP][_get] Failed to obtain LDAP client'
           )
           reject(e)
         })
@@ -276,7 +271,7 @@ class UserDBLDAP implements UserDBBackend {
   ): Promise<DbGetResult> {
     this.logger.debug(`[UserDBLDAP][get] Get method invoked - table: ${table}`)
     this.logger.silly(
-      `[UserDBLDAP][get] Filter fields: ${JSON.stringify(filterFields)}`
+      '[UserDBLDAP][get] Filter fields provided (values withheld)'
     )
     this.logger.silly(
       `[UserDBLDAP][get] Requested fields: ${fields?.join(', ') ?? 'all'}`
@@ -299,20 +294,21 @@ class UserDBLDAP implements UserDBBackend {
             filterFields[key].toString() !== [].toString()
         )
         .forEach((key) => {
+          checkedAttribute(key)
           const value = filterFields[key]
           if (Array.isArray(value)) {
             this.logger.silly(
               `[UserDBLDAP][get] Building OR filter for field "${key}" with ${value.length} values`
             )
             const arrayValueFilters = value
-              .map((val) => `(${key}=${val})`)
+              .map((val) => `(${key}=${escapeLDAPFilterValue(String(val), true)})`)
               .join('')
             individualFilters.push(`(|${arrayValueFilters})`)
           } else {
             this.logger.silly(
-              `[UserDBLDAP][get] Building filter for field "${key}" = "${value}"`
+              `[UserDBLDAP][get] Building filter for field "${key}" (value withheld)`
             )
-            individualFilters.push(`(${key}=${value.toString()})`)
+            if (value !== undefined) individualFilters.push(`(${key}=${escapeLDAPFilterValue(value.toString(), true)})`)
           }
         })
 
@@ -322,9 +318,9 @@ class UserDBLDAP implements UserDBBackend {
           '[UserDBLDAP][get] Filter fields provided but all values were null/empty, falling back to (objectClass=*)'
         )
       } else if (individualFilters.length === 1) {
-        specificFilter = individualFilters[0]
+        specificFilter = individualFilters[0] ?? '(objectClass=*)'
         this.logger.debug(
-          `[UserDBLDAP][get] Single filter condition: ${specificFilter}`
+          '[UserDBLDAP][get] Single filter condition prepared (value withheld)'
         )
       } else {
         specificFilter = `(&${individualFilters.join('')})`
@@ -336,7 +332,7 @@ class UserDBLDAP implements UserDBBackend {
 
     const finalFilter = `(&${this.filter}${specificFilter})`
     this.logger.info(
-      `[UserDBLDAP][get] Executing get query with filter: ${finalFilter}`
+      '[UserDBLDAP][get] Executing get query (filter withheld)'
     )
     return this._get(table, finalFilter, fields, order)
   }
@@ -348,7 +344,7 @@ class UserDBLDAP implements UserDBBackend {
     value: string | number
   ): Promise<DbGetResult> {
     this.logger.debug(
-      `[UserDBLDAP][match] Match method invoked - table: ${table}, value: "${value}"`
+      `[UserDBLDAP][match] Match method invoked - table: ${table}, value withheld`
     )
     this.logger.silly(
       `[UserDBLDAP][match] Search fields: ${
@@ -369,8 +365,9 @@ class UserDBLDAP implements UserDBBackend {
       return Promise.resolve([])
     }
 
+    const escapedValue = escapeLDAPFilterValue(String(value))
     let specificFilter = searchFields.reduce((prev, current) => {
-      return `${prev}(${current}=${value ? `*${value}*` : '*'})`
+      return `${prev}(${checkedAttribute(current)}=${value ? `*${escapedValue}*` : '*'})`
     }, '')
 
     if (searchFields.length > 1) {
@@ -380,13 +377,13 @@ class UserDBLDAP implements UserDBBackend {
       )
     } else {
       this.logger.debug(
-        `[UserDBLDAP][match] Created single field wildcard filter: ${specificFilter}`
+        '[UserDBLDAP][match] Created single field wildcard filter (value withheld)'
       )
     }
 
     const finalFilter = `(&${this.filter}${specificFilter})`
     this.logger.info(
-      `[UserDBLDAP][match] Executing match query with filter: ${finalFilter}`
+      '[UserDBLDAP][match] Executing match query (filter withheld)'
     )
     return this._get(table, finalFilter, fields)
   }

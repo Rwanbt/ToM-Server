@@ -53,18 +53,19 @@ const Register = <T extends string = never>(
                 )
                 send(res, 200, { token })
               })
-              .catch((e) => {
-                console.error('Unable to creation session', { e })
+              .catch(() => {
                 /* istanbul ignore next */
-                logger.error('Unable to create session', e)
+                // Persistence failures may contain the generated access token.
+                logger.error('Unable to create session')
                 /* istanbul ignore next */
                 send(res, 500, errMsg('unknown', 'Unable to create session'))
               })
           })
-          .catch((e) => {
-            console.error('unable to validate token', { e })
-            logger.warn(`Unable to validate token ${JSON.stringify(obj)}`, e)
-            send(res, 401, errMsg('sessionNotValidated', e))
+          .catch(() => {
+            // Never serialize the incoming request or untrusted exception:
+            // both may contain the upstream Matrix bearer token.
+            logger.warn('Unable to validate Matrix token')
+            send(res, 401, errMsg('sessionNotValidated'))
           })
       })
     })

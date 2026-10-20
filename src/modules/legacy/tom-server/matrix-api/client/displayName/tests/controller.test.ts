@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, mock } from "bun:test"
+import { beforeEach, describe, expect, it, mock, type Mock } from "bun:test"
 import DisplayNameController from '../controllers'
 import type DisplayNameService from '../services'
 import { errCodes } from '../../../../../utils'
@@ -10,7 +10,7 @@ describe('DisplayNameController', () => {
   let mockConfig: any
   let mockReq: any
   let mockRes: any
-  let next: Mock
+  let next: ReturnType<typeof mock>
 
   beforeEach(() => {
     mockLogger = {
@@ -131,7 +131,7 @@ describe('DisplayNameController', () => {
       params: { userId: 'user1' },
       body: { displayname: 'Alice' }
     }
-    ;(mockService.update as Mock).mockResolvedValue({ ok: true })
+    ;(mockService.update as Mock<DisplayNameService['update']>).mockResolvedValue(new Response(null, { status: 200 }))
 
     await controller.updateDisplayName(mockReq, mockRes, next)
 
@@ -147,10 +147,7 @@ describe('DisplayNameController', () => {
       params: { userId: 'user1' },
       body: { displayname: 'Alice' }
     }
-    ;(mockService.update as Mock).mockResolvedValue({
-      ok: false,
-      text: async () => 'DB error'
-    })
+    ;(mockService.update as Mock<DisplayNameService['update']>).mockResolvedValue(new Response('DB error', { status: 500 }))
 
     await controller.updateDisplayName(mockReq, mockRes, next)
 
@@ -172,11 +169,11 @@ describe('DisplayNameController', () => {
       params: { userId: 'user1' },
       body: { displayname: 'Alice' }
     }
-    ;(mockService.update as Mock).mockRejectedValue(new Error('fail'))
+    ;(mockService.update as Mock<DisplayNameService['update']>).mockRejectedValue(new Error('fail'))
 
     await controller.updateDisplayName(mockReq, mockRes, next)
 
     expect(next).toHaveBeenCalled()
-    expect(next.mock.calls[0][0]).toBeInstanceOf(Error)
+    expect(next.mock.calls[0]?.[0]).toBeInstanceOf(Error)
   })
 })

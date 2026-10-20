@@ -29,8 +29,12 @@ import { isTruthy, oldParser } from "./utils";
 const coerceValue = (value: string, targetType: ConfigValueType): any => {
   switch (targetType) {
     case "number": {
-      const num = parseFloat(value);
-      if (Number.isNaN(num)) {
+      // parseFloat accepts misleading prefixes such as "3000ms" and Infinity.
+      // Configuration must contain one finite decimal (optionally scientific).
+      const trimmed = value.trim();
+      const decimal = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
+      const num = Number(trimmed);
+      if (!decimal.test(trimmed) || !Number.isFinite(num)) {
         throw new InvalidNumberFormatError(value);
       }
       return num;
@@ -84,8 +88,7 @@ const loadConfigFromFile = (filePath: string): Configuration => {
  * @throws {ConfigCoercionError} if an environment variable value cannot be coerced to the expected type or is an empty string.
  */
 const applyEnvironmentVariables = (config: Configuration, desc: NewConfigDescription, useEnv: boolean): void => {
-  Object.keys(desc).forEach((key: string) => {
-    const configProp = desc[key];
+  Object.entries(desc).forEach(([key, configProp]) => {
     const envVarName = key.toUpperCase();
     const envValue = process.env[envVarName];
 
@@ -116,8 +119,7 @@ const applyEnvironmentVariables = (config: Configuration, desc: NewConfigDescrip
  * @throws {ConfigCoercionError} if a default value string cannot be coerced to its expected type.
  */
 const applyDefaultValues = (config: Configuration, desc: NewConfigDescription): void => {
-  Object.keys(desc).forEach((key: string) => {
-    const configProp = desc[key];
+  Object.entries(desc).forEach(([key, configProp]) => {
     if (config[key] === undefined) {
       if (configProp.default === undefined) {
         config[key] = undefined;
@@ -167,8 +169,7 @@ const validateUnwantedKeys = (config: Configuration, desc: NewConfigDescription)
  * @throws {MissingRequiredConfigError} if a required key is missing.
  */
 const validateRequiredKeys = (config: Configuration, desc: NewConfigDescription): void => {
-  Object.keys(desc).forEach((key: string) => {
-    const configProp = desc[key];
+  Object.entries(desc).forEach(([key, configProp]) => {
     if ((configProp.required ?? false) && config[key] === undefined) {
       throw new MissingRequiredConfigError(key);
     }

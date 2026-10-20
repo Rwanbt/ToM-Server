@@ -33,11 +33,8 @@ class Pg<T extends string> extends SQL<T> implements IdDbBackend<T> {
       ssl: sslType
     })
     const pool = new pg.Pool(opts)
-    pool.on('error', (err) => {
-      this.logger.error(`[${label}] Pool background error`, {
-        error: err.message,
-        code: (err as NodeJS.ErrnoException).code
-      })
+    pool.on('error', () => {
+      this.logger.error(`[${label}] Pool background error`)
     })
     return pool
       .query('SELECT 1')
@@ -46,10 +43,7 @@ class Pg<T extends string> extends SQL<T> implements IdDbBackend<T> {
         return pool
       })
       .catch((err: NodeJS.ErrnoException) => {
-        this.logger.error(`[${label}] Connection test failed`, {
-          error: err.message,
-          code: err.code
-        })
+        this.logger.error(`[${label}] Connection test failed`)
         void pool.end()
         throw err
       })
@@ -121,7 +115,7 @@ class Pg<T extends string> extends SQL<T> implements IdDbBackend<T> {
               })
           })
           .catch((e) => {
-            logger.error('Unable to load pg module', e)
+            logger.error('Unable to load pg module')
             reject(e)
           })
       }
@@ -133,9 +127,11 @@ class Pg<T extends string> extends SQL<T> implements IdDbBackend<T> {
       this.logger.error('[Pg][rawQuery] DB not ready')
       return Promise.reject(new Error('DB not ready'))
     }
-    this.logger.debug('[Pg][rawQuery] Executing query', { query })
+    // Queries contain inline values including access tokens and user data.
+    // Do not disclose SQL text or database exceptions to diagnostic sinks.
+    this.logger.debug('[Pg][rawQuery] Executing query')
     return this.db.query(query).catch((err) => {
-      this.logger.error('[Pg][rawQuery] Query failed', { query, error: err })
+      this.logger.error('[Pg][rawQuery] Query failed')
       throw err
     })
   }
@@ -182,9 +178,9 @@ class Pg<T extends string> extends SQL<T> implements IdDbBackend<T> {
       const vals:
         | (string[] & Array<string | number>)
         | (number[] & Array<string | number>) = []
-      Object.keys(values).forEach((k) => {
+      Object.entries(values).forEach(([k, v]) => {
         names.push(k)
-        vals.push(values[k])
+        vals.push(v)
       })
       const query = `INSERT INTO ${table}(${names.join(',')}) VALUES(${names
         .map((v, i) => `$${i + 1}`)
@@ -231,9 +227,9 @@ class Pg<T extends string> extends SQL<T> implements IdDbBackend<T> {
         const vals:
           | (string[] & Array<string | number>)
           | (number[] & Array<string | number>) = []
-        Object.keys(values).forEach((k) => {
+        Object.entries(values).forEach(([k, v]) => {
           names.push(k)
-          vals.push(values[k])
+          vals.push(v)
         })
         vals.push(value)
         const query = `UPDATE ${table} SET ${names
@@ -286,9 +282,9 @@ class Pg<T extends string> extends SQL<T> implements IdDbBackend<T> {
         const vals:
           | (string[] & Array<string | number>)
           | (number[] & Array<string | number>) = []
-        Object.keys(values).forEach((k) => {
+        Object.entries(values).forEach(([k, value]) => {
           names.push(k)
-          vals.push(values[k])
+          vals.push(value)
         })
         vals.push(condition1.value, condition2.value)
         const query = `UPDATE ${table} SET ${names
@@ -373,11 +369,11 @@ class Pg<T extends string> extends SQL<T> implements IdDbBackend<T> {
                 filterFields[key].toString() !== [].toString()
             )
             .forEach((key) => {
+              const filterValue = filterFields[key]
+              if (filterValue == null) return
               localCondition += localCondition !== '' ? ' AND ' : ''
-              if (Array.isArray(filterFields[key])) {
-                localCondition += `(${(
-                  filterFields[key] as Array<string | number>
-                )
+              if (Array.isArray(filterValue)) {
+                localCondition += `(${filterValue
                   .map((val) => {
                     index++
                     values.push(val.toString())
@@ -386,7 +382,7 @@ class Pg<T extends string> extends SQL<T> implements IdDbBackend<T> {
                   .join(' OR ')})`
               } else {
                 index++
-                values.push(filterFields[key].toString())
+                values.push(filterValue.toString())
                 localCondition += `${key}${op}$${index}`
               }
             })
@@ -637,11 +633,11 @@ class Pg<T extends string> extends SQL<T> implements IdDbBackend<T> {
                 filterFields[key].toString() !== [].toString()
             )
             .forEach((key) => {
+              const filterValue = filterFields[key]
+              if (filterValue == null) return
               localCondition += localCondition !== '' ? ' AND ' : ''
-              if (Array.isArray(filterFields[key])) {
-                localCondition += `(${(
-                  filterFields[key] as Array<string | number>
-                )
+              if (Array.isArray(filterValue)) {
+                localCondition += `(${filterValue
                   .map((val) => {
                     index++
                     values.push(val.toString())
@@ -650,7 +646,7 @@ class Pg<T extends string> extends SQL<T> implements IdDbBackend<T> {
                   .join(' OR ')})`
               } else {
                 index++
-                values.push(filterFields[key].toString())
+                values.push(filterValue.toString())
                 localCondition += `${key}${op}$${index}`
               }
             })
@@ -701,23 +697,10 @@ class Pg<T extends string> extends SQL<T> implements IdDbBackend<T> {
         )}, ${minmax}(${targetField}) AS max_${targetFieldAlias} FROM ${tables.join(
           ','
         )} ${condition} HAVING COUNT(*) > 0` // HAVING COUNT(*) > 0 is to avoid returning a row with NULL values
-        this.logger.debug(`[Pg][_getMinMax] Executing ${minmax} query`, {
-          tables,
-          targetField,
-          fields,
-          condition,
-          query
-        })
+        this.logger.debug(`[Pg][_getMinMax] Executing ${minmax} query`)
         this.db.query(query, values, (err, rows) => {
           if (err) {
-            this.logger.error(`[Pg][_getMinMax] ${minmax} query failed`, {
-              tables,
-              targetField,
-              fields,
-              condition,
-              query,
-              error: err
-            })
+            this.logger.error(`[Pg][_getMinMax] ${minmax} query failed`)
             reject(err)
           } else {
             this.logger.debug(`[Pg][_getMinMax] ${minmax} query successful`, {
@@ -848,22 +831,10 @@ class Pg<T extends string> extends SQL<T> implements IdDbBackend<T> {
         const query = `SELECT ${fields.join(
           ','
         )} FROM ${table} WHERE ${condition}`
-        this.logger.debug('[Pg][match] Executing LIKE query', {
-          table,
-          searchFields,
-          value,
-          fields,
-          query
-        })
+        this.logger.debug('[Pg][match] Executing LIKE query')
         this.db.query(query, values, (err, rows) => {
           if (err) {
-            this.logger.error('[Pg][match] Query failed', {
-              table,
-              searchFields,
-              value,
-              query,
-              error: err
-            })
+            this.logger.error('[Pg][match] Query failed')
             reject(err)
           } else {
             this.logger.debug('[Pg][match] Query successful', {

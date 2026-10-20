@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import { wellKnownClientDocumentSchema, wellKnownClientSettingsSchema } from "./schema";
 
 describe("Well-Known Schemas", () => {

@@ -22,10 +22,13 @@ describe("Hash methods", () => {
     hash.ready
       .then(() => {
         Object.keys(sha256Results).forEach((str) => {
-          expect(hash.sha256(str)).toEqual(sha256Results[str]);
-          expect(hash.sha256(...str.split(" "))).toEqual(sha256Results[str]);
-          expect(hash.sha512(str)).toEqual(sha512Results[str]);
-          expect(hash.sha512(...str.split(" "))).toEqual(sha512Results[str]);
+          const digest256 = sha256Results[str];
+          const digest512 = sha512Results[str];
+          if (!digest256 || !digest512) throw new Error(`Missing expected digest for ${str}`);
+          expect(hash.sha256(str)).toEqual(digest256);
+          expect(hash.sha256(...str.split(" "))).toEqual(digest256);
+          expect(hash.sha512(str)).toEqual(digest512);
+          expect(hash.sha512(...str.split(" "))).toEqual(digest512);
         });
         done();
       })
@@ -36,6 +39,21 @@ describe("Hash methods", () => {
 test("randomString", () => {
   const res = randomString(64);
   expect(res).toMatch(/^[a-zA-Z0-9]{64}$/);
+});
+
+test("secure tokens do not depend on Math.random and reject unsafe lengths", () => {
+  const originalRandom = Math.random;
+  Math.random = () => { throw new Error("Insecure Math.random must not be called"); };
+  try {
+    expect(randomString(32)).toMatch(/^[a-zA-Z0-9]{32}$/);
+    expect(randomString(64)).toMatch(/^[a-zA-Z0-9]{64}$/);
+  } finally {
+    Math.random = originalRandom;
+  }
+  for (const size of [-1, 0.5, Number.POSITIVE_INFINITY, 4097]) {
+    expect(() => randomString(size)).toThrow(RangeError);
+  }
+  expect(randomString(0)).toBe("");
 });
 
 describe("generateKeyPair", () => {

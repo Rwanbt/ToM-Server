@@ -2,13 +2,15 @@ import { type TwakeLogger } from '../../../logger/index'
 import { type Config } from '../../types'
 import { type ISmsService, type SMS, type SendSmsPayload } from '../types'
 import fetch from 'node-fetch'
+import { assertSecureSmsProviderUrl } from '../../../utils/sms-provider-security'
 
 export default class SmsService implements ISmsService {
   private readonly headers: Record<string, string>
 
   constructor(
     private readonly config: Config,
-    private readonly logger: TwakeLogger
+    private readonly logger: TwakeLogger,
+    private readonly requestTimeoutMs = 15_000
   ) {
     if (
       config.sms_api_url === undefined ||
@@ -17,6 +19,10 @@ export default class SmsService implements ISmsService {
     ) {
       throw new Error('SMS API configuration is missing')
     }
+    if (!Number.isSafeInteger(requestTimeoutMs) || requestTimeoutMs <= 0) {
+      throw new Error('SMS API request timeout must be positive')
+    }
+    assertSecureSmsProviderUrl(config.sms_api_url)
 
     this.headers = {
       'Content-Type': 'application/json',
@@ -34,6 +40,10 @@ export default class SmsService implements ISmsService {
    * @param {SMS} sms - the sms payload to send
    */
   public send = async ({ text, to }: SMS): Promise<void> => {
+    // A provider that never responds must not hold an Express request open
+    // indefinitely. Always cancel the timer, including on transport failure.
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), this.requestTimeoutMs)
     try {
       const response = await fetch(this.config.sms_api_url as string, {
         method: 'POST',
@@ -43,15 +53,26 @@ export default class SmsService implements ISmsService {
           text,
           type: 'sms_low_cost'
         } satisfies SendSmsPayload),
-        headers: this.headers
+        headers: this.headers,
+        // Custom api-key/api-login headers must never follow a 30x redirect
+        // onto an attacker-controlled origin or downgrade to plaintext.
+        redirect: 'error',
+        signal: controller.signal
       })
 
-      if (response.status === 400) {
-        throw new Error('Failed to send sms', { cause: response.json() })
+      if (response.status < 200 || response.status >= 300) {
+        this.logger.warn('SMS API rejected the request', {
+          status: response.status
+        })
+        throw new Error('Failed to send SMS')
       }
-    } catch (error) {
-      this.logger.debug('SMS API', { error })
+    } catch {
+      // Provider bodies and transport errors may contain credentials or phone
+      // numbers. Keep the HTTP status above, but do not log untrusted details.
+      this.logger.debug('SMS API request failed')
       throw new Error('Failed to send SMS')
+    } finally {
+      clearTimeout(timer)
     }
   }
 }
