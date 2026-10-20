@@ -703,23 +703,10 @@ class Pg<T extends string> extends SQL<T> implements IdDbBackend<T> {
         )}, ${minmax}(${targetField}) AS max_${targetFieldAlias} FROM ${tables.join(
           ','
         )} ${condition} HAVING COUNT(*) > 0` // HAVING COUNT(*) > 0 is to avoid returning a row with NULL values
-        this.logger.debug(`[Pg][_getMinMax] Executing ${minmax} query`, {
-          tables,
-          targetField,
-          fields,
-          condition,
-          query
-        })
+        this.logger.debug(`[Pg][_getMinMax] Executing ${minmax} query`)
         this.db.query(query, values, (err, rows) => {
           if (err) {
-            this.logger.error(`[Pg][_getMinMax] ${minmax} query failed`, {
-              tables,
-              targetField,
-              fields,
-              condition,
-              query,
-              error: err
-            })
+            this.logger.error(`[Pg][_getMinMax] ${minmax} query failed`)
             reject(err)
           } else {
             this.logger.debug(`[Pg][_getMinMax] ${minmax} query successful`, {
@@ -850,22 +837,10 @@ class Pg<T extends string> extends SQL<T> implements IdDbBackend<T> {
         const query = `SELECT ${fields.join(
           ','
         )} FROM ${table} WHERE ${condition}`
-        this.logger.debug('[Pg][match] Executing LIKE query', {
-          table,
-          searchFields,
-          value,
-          fields,
-          query
-        })
+        this.logger.debug('[Pg][match] Executing LIKE query')
         this.db.query(query, values, (err, rows) => {
           if (err) {
-            this.logger.error('[Pg][match] Query failed', {
-              table,
-              searchFields,
-              value,
-              query,
-              error: err
-            })
+            this.logger.error('[Pg][match] Query failed')
             reject(err)
           } else {
             this.logger.debug('[Pg][match] Query successful', {
