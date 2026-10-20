@@ -678,13 +678,8 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
         )}, ${minmax}(${targetField}) AS max_${targetFieldAlias} FROM ${tables.join(
           ','
         )} ${condition} HAVING COUNT(*) > 0` // HAVING COUNT(*) > 0 is to avoid returning a row with NULL values
-        this.logger.debug(`Executing ${minmax} query`, {
-          tables,
-          targetField,
-          fields,
-          condition,
-          query
-        })
+        // SQL may include inlined join values (identity tokens and private data).
+        this.logger.debug(`Executing ${minmax} query`)
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment, @typescript-eslint/prefer-ts-expect-error
         // @ts-ignore never undefined
         const stmt = this.db.prepare(query)
@@ -694,11 +689,6 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
             /* istanbul ignore if */
             if (err != null) {
               this.logger.error(`${minmax} query failed`, {
-                tables,
-                targetField,
-                fields,
-                condition,
-                query,
                 errorCode: safeSqlErrorCode(err)
               })
               reject(err)
@@ -714,8 +704,7 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
         stmt.finalize((err) => {
           if (err) {
             this.logger.error(`${minmax} statement finalize failed`, {
-              tables,
-              error: err
+              errorCode: safeSqlErrorCode(err)
             })
             reject(err)
           }
@@ -838,12 +827,7 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
         const query = `SELECT ${fields.join(
           ','
         )} FROM ${table} WHERE ${condition}`
-        this.logger.debug('[SQLite][match] Executing LIKE query', {
-          table,
-          searchFields,
-          fields,
-          query
-        })
+        this.logger.debug('[SQLite][match] Executing LIKE query')
         const stmt = this.db.prepare(query)
         stmt.all(
           values,
@@ -851,9 +835,6 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
             /* istanbul ignore if */
             if (err != null) {
               this.logger.error('[SQLite][match] Query failed', {
-                table,
-                searchFields,
-                query,
                 errorCode: safeSqlErrorCode(err)
               })
               reject(err)
@@ -869,8 +850,7 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
         stmt.finalize((err) => {
           if (err) {
             this.logger.error('[SQLite][match] Statement finalize failed', {
-              table,
-              error: err
+              errorCode: safeSqlErrorCode(err)
             })
             reject(err)
           }

@@ -26,7 +26,7 @@ test('failed parameterized SQLite insert never logs credentials or payload value
   await expect(db.insert('matrixTokens', { id: secret, data: JSON.stringify({ token: secret }) }))
     .rejects.toBe('constraint')
   expect(logged.length).toBeGreaterThan(0)
-  expect(JSON.stringify(logged)).not.toContain(secret)
+  expect(Bun.inspect(logged)).not.toContain(secret)
 })
 
 test('failed SQLite match and filtered deletion never log bound search values', async () => {
@@ -45,4 +45,33 @@ test('raw SQL execution errors never log sensitive SQL text', async () => {
   await expect(db.rawQuery(`SELECT '${secret}'`)).rejects.toBe(driverError)
   expect(JSON.stringify(logged)).not.toContain(secret)
   expect(JSON.stringify(logged)).toContain('SQLITE_ERROR')
+})
+
+test('SQLite aggregate query diagnostics never disclose inlined join conditions or driver errors', async () => {
+  const secret = 'SENSITIVE_JOIN_VALUE_5622'
+  const driverError = new Error(`invalid token ${secret}`)
+  const { db, logged } = fakeFailingSQLite(driverError)
+
+  await expect(db._getMinMax('MAX', ['matrixTokens'], 'id', ['id'],
+    undefined, undefined, undefined, undefined, undefined,
+    { 'matrixTokens.id': `'${secret}'` })).rejects.toBe(driverError)
+
+  expect(JSON.stringify(logged)).not.toContain(secret)
+})
+
+test('SQLite failed LIKE statement finalization never logs a token-bearing exception', async () => {
+  const secret = 'SQLITE_FINALIZE_TOKEN_5622'
+  const driverError = new Error(`sensitive ${secret}`)
+  const { db, logged } = fakeFailingSQLite()
+  db.db = {
+    prepare: () => ({
+      all: (_values: unknown, callback: (error: null, rows: object[]) => void) => callback(null, []),
+      finalize: (callback: (error: Error) => void) => callback(driverError)
+    })
+  } as never
+
+  // SQLite delivers `all` before finalize; the log must remain redacted
+  // even when the successful result has already settled the promise.
+  await expect(db.match('matrixTokens', ['id'], ['id'], 'public')).resolves.toEqual([])
+  expect(Bun.inspect(logged)).not.toContain(secret)
 })
