@@ -33,11 +33,8 @@ class Pg<T extends string> extends SQL<T> implements IdDbBackend<T> {
       ssl: sslType
     })
     const pool = new pg.Pool(opts)
-    pool.on('error', (err) => {
-      this.logger.error(`[${label}] Pool background error`, {
-        error: err.message,
-        code: (err as NodeJS.ErrnoException).code
-      })
+    pool.on('error', () => {
+      this.logger.error(`[${label}] Pool background error`)
     })
     return pool
       .query('SELECT 1')
@@ -46,10 +43,7 @@ class Pg<T extends string> extends SQL<T> implements IdDbBackend<T> {
         return pool
       })
       .catch((err: NodeJS.ErrnoException) => {
-        this.logger.error(`[${label}] Connection test failed`, {
-          error: err.message,
-          code: err.code
-        })
+        this.logger.error(`[${label}] Connection test failed`)
         void pool.end()
         throw err
       })
@@ -121,7 +115,7 @@ class Pg<T extends string> extends SQL<T> implements IdDbBackend<T> {
               })
           })
           .catch((e) => {
-            logger.error('Unable to load pg module', e)
+            logger.error('Unable to load pg module')
             reject(e)
           })
       }
