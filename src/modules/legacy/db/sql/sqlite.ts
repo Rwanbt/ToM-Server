@@ -49,16 +49,14 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         reject(new Error("DB not ready"));
         return;
       }
-      this.logger.debug("[SQLite][rawQuery] Executing query", { query });
+      // The raw query may contain inline secrets, never log its text.
+      this.logger.debug("[SQLite][rawQuery] Executing query");
       this.db.run(query, (err) => {
         if (err === null || err === undefined) {
-          this.logger.debug("[SQLite][rawQuery] Query successful", { query });
+          this.logger.debug("[SQLite][rawQuery] Query successful");
           resolve();
         } else {
-          this.logger.error("[SQLite][rawQuery] Query failed", {
-            query,
-            error: err,
-          });
+          this.logger.error("[SQLite][rawQuery] Query failed");
           reject(err);
         }
       });
@@ -93,13 +91,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
       stmt.all(vals, (err: string, rows: Array<Record<string, string | number>>) => {
         /* istanbul ignore if */
         if (err !== null && err !== undefined) {
-          this.logger.error("[SQLite][insert] Failed", {
-            table,
-            fields: names,
-            values: vals,
-            query,
-            error: err,
-          });
+          this.logger.error("[SQLite][insert] Failed");
           reject(err);
         } else {
           this.logger.debug("[SQLite][insert] Successful", {
@@ -111,10 +103,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
       });
       stmt.finalize((err) => {
         if (err) {
-          this.logger.error("[SQLite][insert] Statement finalize failed", {
-            table,
-            error: err,
-          });
+          this.logger.error("[SQLite][insert] Statement finalize failed");
           reject(err);
         }
       });
@@ -337,23 +326,12 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         if (order) condition += ` ORDER BY ${order}`;
 
         const query = `SELECT ${fields.join(",")} FROM ${tables.join(",")} ${condition}`;
-        this.logger.debug("[SQLite][_get] Executing SELECT", {
-          tables,
-          fields,
-          condition,
-          query,
-        });
+        this.logger.debug("[SQLite][_get] Executing SELECT");
         const stmt = this.db.prepare(query);
         stmt.all(values, (err: string, rows: Array<Record<string, string | number>>) => {
           /* istanbul ignore if */
           if (err !== null && err !== undefined) {
-            this.logger.error("[SQLite][_get] SELECT failed", {
-              tables,
-              fields,
-              condition,
-              query,
-              error: err,
-            });
+            this.logger.error("[SQLite][_get] SELECT failed");
             reject(err);
           } else {
             this.logger.debug("[SQLite][_get] SELECT successful", {
@@ -365,10 +343,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         });
         stmt.finalize((err) => {
           if (err) {
-            this.logger.error("[SQLite][_get] Statement finalize failed", {
-              tables,
-              error: err,
-            });
+            this.logger.error("[SQLite][_get] Statement finalize failed");
             reject(err);
           }
         });
@@ -588,25 +563,12 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         )}, ${minmax}(${targetField}) AS max_${targetFieldAlias} FROM ${tables.join(
           ",",
         )} ${condition} HAVING COUNT(*) > 0`; // HAVING COUNT(*) > 0 is to avoid returning a row with NULL values
-        this.logger.debug(`Executing ${minmax} query`, {
-          tables,
-          targetField,
-          fields,
-          condition,
-          query,
-        });
+        this.logger.debug(`Executing ${minmax} query`);
         const stmt = this.db.prepare(query);
         stmt.all(values, (err: string, rows: Array<Record<string, string | number>>) => {
           /* istanbul ignore if */
           if (err !== null && err !== undefined) {
-            this.logger.error(`${minmax} query failed`, {
-              tables,
-              targetField,
-              fields,
-              condition,
-              query,
-              error: err,
-            });
+            this.logger.error(`${minmax} query failed`);
             reject(err);
           } else {
             this.logger.debug(`${minmax} query successful`, {
@@ -618,10 +580,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         });
         stmt.finalize((err) => {
           if (err) {
-            this.logger.error(`${minmax} statement finalize failed`, {
-              tables,
-              error: err,
-            });
+            this.logger.error(`${minmax} statement finalize failed`);
             reject(err);
           }
         });
@@ -741,24 +700,12 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         let condition = searchFields.map((f) => `${f} LIKE ?`).join(" OR ");
         if (order) condition += ` ORDER BY ${order}`;
         const query = `SELECT ${fields.join(",")} FROM ${table} WHERE ${condition}`;
-        this.logger.debug("[SQLite][match] Executing LIKE query", {
-          table,
-          searchFields,
-          value,
-          fields,
-          query,
-        });
+        this.logger.debug("[SQLite][match] Executing LIKE query");
         const stmt = this.db.prepare(query);
         stmt.all(values, (err: string, rows: Array<Record<string, string | number>>) => {
           /* istanbul ignore if */
           if (err !== null && err !== undefined) {
-            this.logger.error("[SQLite][match] Query failed", {
-              table,
-              searchFields,
-              value,
-              query,
-              error: err,
-            });
+            this.logger.error("[SQLite][match] Query failed");
             reject(err);
           } else {
             this.logger.debug("[SQLite][match] Query successful", {
@@ -770,10 +717,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         });
         stmt.finalize((err) => {
           if (err) {
-            this.logger.error("[SQLite][match] Statement finalize failed", {
-              table,
-              error: err,
-            });
+            this.logger.error("[SQLite][match] Statement finalize failed");
             reject(err);
           }
         });

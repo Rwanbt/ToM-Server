@@ -111,9 +111,10 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
       this.logger.error("[Pg][rawQuery] DB not ready");
       return Promise.reject(new Error("DB not ready"));
     }
-    this.logger.debug("[Pg][rawQuery] Executing query", { query });
+    // Legacy queries can embed bearer tokens, passwords and user data.
+    this.logger.debug("[Pg][rawQuery] Executing query");
     return this.db.query(query).catch((err) => {
-      this.logger.error("[Pg][rawQuery] Query failed", { query, error: err });
+      this.logger.error("[Pg][rawQuery] Query failed");
       throw err;
     });
   }
@@ -169,13 +170,7 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
       });
       this.db.query(query, vals, (err, rows) => {
         if (err) {
-          this.logger.error("[Pg][insert] Failed", {
-            table,
-            fields: names,
-            values: vals,
-            query,
-            error: err,
-          });
+          this.logger.error("[Pg][insert] Failed");
           reject(err);
         } else {
           this.logger.debug("[Pg][insert] Successful", {
@@ -392,21 +387,10 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
         if (order) condition += ` ORDER BY ${order}`;
 
         const query = `SELECT ${fields.join(",")} FROM ${tables.join(",")} ${condition}`;
-        this.logger.debug("[Pg][_get] Executing SELECT", {
-          tables,
-          fields,
-          condition,
-          query,
-        });
+        this.logger.debug("[Pg][_get] Executing SELECT");
         this.db.query(query, values, (err: any, rows: any) => {
           if (err) {
-            this.logger.error("[Pg][_get] SELECT failed", {
-              tables,
-              fields,
-              condition,
-              query,
-              error: err,
-            });
+            this.logger.error("[Pg][_get] SELECT failed");
             reject(err);
           } else {
             this.logger.debug("[Pg][_get] SELECT successful", {
@@ -632,23 +616,10 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
         )}, ${minmax}(${targetField}) AS max_${targetFieldAlias} FROM ${tables.join(
           ",",
         )} ${condition} HAVING COUNT(*) > 0`; // HAVING COUNT(*) > 0 is to avoid returning a row with NULL values
-        this.logger.debug(`[Pg][_getMinMax] Executing ${minmax} query`, {
-          tables,
-          targetField,
-          fields,
-          condition,
-          query,
-        });
+        this.logger.debug(`[Pg][_getMinMax] Executing ${minmax} query`);
         this.db.query(query, values, (err, rows) => {
           if (err) {
-            this.logger.error(`[Pg][_getMinMax] ${minmax} query failed`, {
-              tables,
-              targetField,
-              fields,
-              condition,
-              query,
-              error: err,
-            });
+            this.logger.error(`[Pg][_getMinMax] ${minmax} query failed`);
             reject(err);
           } else {
             this.logger.debug(`[Pg][_getMinMax] ${minmax} query successful`, {
@@ -775,22 +746,10 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
         if (order) condition += ` ORDER BY ${order}`;
 
         const query = `SELECT ${fields.join(",")} FROM ${table} WHERE ${condition}`;
-        this.logger.debug("[Pg][match] Executing LIKE query", {
-          table,
-          searchFields,
-          value,
-          fields,
-          query,
-        });
+        this.logger.debug("[Pg][match] Executing LIKE query");
         this.db.query(query, values, (err, rows) => {
           if (err) {
-            this.logger.error("[Pg][match] Query failed", {
-              table,
-              searchFields,
-              value,
-              query,
-              error: err,
-            });
+            this.logger.error("[Pg][match] Query failed");
             reject(err);
           } else {
             this.logger.debug("[Pg][match] Query successful", {
