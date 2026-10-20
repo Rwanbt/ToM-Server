@@ -767,9 +767,8 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
           this.logger.error("[Pg][deleteEqual] Invalid parameters", {
             table,
             field,
-            value,
           });
-          reject(new Error(`Bad deleteEqual call, field: ${field}, value: ${value}`));
+          reject(new Error("Bad deleteEqual call: invalid field or value"));
           return;
         }
         const query = `DELETE FROM ${table} WHERE ${field}=$1`;
@@ -783,12 +782,7 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
           [value] as (string[] & Array<string | number>) | (number[] & Array<string | number>),
           (err, _rows) => {
             if (err) {
-              this.logger.error("[Pg][deleteEqual] Failed", {
-                table,
-                field,
-                query,
-                error: err,
-              });
+              this.logger.error("[Pg][deleteEqual] Failed");
               reject(err);
             } else {
               this.logger.debug("[Pg][deleteEqual] Successful", {
@@ -829,16 +823,8 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
           !condition2.value ||
           condition2.value.toString().length === 0
         ) {
-          this.logger.error("[Pg][deleteEqualAnd] Invalid parameters", {
-            table,
-            condition1: { field: condition1.field, value: condition1.value },
-            condition2: { field: condition2.field, value: condition2.value },
-          });
-          reject(
-            new Error(
-              `Bad deleteAnd call, conditions: ${condition1.field}=${condition1.value}, ${condition2.field}=${condition2.value}`,
-            ),
-          );
+          this.logger.error("[Pg][deleteEqualAnd] Invalid parameters", { table });
+          reject(new Error("Bad deleteAnd call: invalid conditions"));
           return;
         }
         const query = `DELETE FROM ${table} WHERE ${condition1.field}=$1 AND ${condition2.field}=$2`;
@@ -854,12 +840,7 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
           | (number[] & Array<string | number>),
           (err) => {
             if (err) {
-              this.logger.error("[Pg][deleteEqualAnd] Failed", {
-                table,
-                conditions: [condition1.field, condition2.field],
-                query,
-                error: err,
-              });
+              this.logger.error("[Pg][deleteEqualAnd] Failed");
               reject(err);
             } else {
               this.logger.debug("[Pg][deleteEqualAnd] Successful", {

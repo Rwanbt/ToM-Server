@@ -11,6 +11,58 @@ function loggerFixture() {
 }
 
 describe('legacy shared DB diagnostics privacy', () => {
+  it('redacts PostgreSQL deleteEqual driver failures', async () => {
+    const { logger, logs } = loggerFixture()
+    const db = Object.create(Pg.prototype) as Pg<'tokens'>
+    Object.defineProperty(db, 'logger', { value: logger })
+    db.db = { query: (_q: string, _v: unknown[], cb: (error: Error) => void) => cb(Error(credential)) } as never
+    await expect(db.deleteEqual('tokens', 'id', credential)).rejects.toThrow(credential)
+    expect(logs()).not.toContain(credential)
+  })
+
+  it('redacts SQLite deleteEqual driver failures', async () => {
+    const { logger, logs } = loggerFixture()
+    const db = Object.create(SQLite.prototype) as SQLite<'tokens'>
+    Object.defineProperty(db, 'logger', { value: logger })
+    db.db = { prepare: () => ({
+      all: (_v: unknown[], cb: (error: Error) => void) => cb(Error(credential)),
+      finalize: (cb: (error: null) => void) => cb(null)
+    }) } as never
+    await expect(db.deleteEqual('tokens', 'id', credential)).rejects.toThrow(credential)
+    expect(logs()).not.toContain(credential)
+  })
+
+  it('redacts invalid PostgreSQL deleteEqualAnd credentials in logs and validation errors', async () => {
+    const { logger, logs } = loggerFixture()
+    const db = Object.create(Pg.prototype) as Pg<'tokens'>
+    Object.defineProperty(db, 'logger', { value: logger })
+    db.db = { query: mock() } as never
+    await expect(db.deleteEqualAnd(
+      'tokens',
+      { field: 'id', value: credential },
+      { field: 'owner', value: '' }
+    )).rejects.toThrow('Bad deleteAnd call')
+    expect(logs()).not.toContain(credential)
+    try {
+      await db.deleteEqualAnd('tokens', { field: 'id', value: credential }, { field: 'owner', value: '' })
+    } catch (error) {
+      expect(String(error)).not.toContain(credential)
+    }
+  })
+
+  it('redacts SQLite deleteEqualAnd driver errors', async () => {
+    const { logger, logs } = loggerFixture()
+    const db = Object.create(SQLite.prototype) as SQLite<'tokens'>
+    Object.defineProperty(db, 'logger', { value: logger })
+    db.db = { prepare: () => ({
+      all: (_v: unknown[], cb: (error: Error) => void) => cb(Error(credential)),
+      finalize: (cb: (error: null) => void) => cb(null)
+    }) } as never
+    await expect(db.deleteEqualAnd(
+      'tokens', { field: 'id', value: credential }, { field: 'owner', value: 'owner' }
+    )).rejects.toThrow(credential)
+    expect(logs()).not.toContain(credential)
+  })
   it('does not log private filter values or driver exceptions on PostgreSQL deleteWhere', async () => {
     const { logger, logs } = loggerFixture()
     const db = Object.create(Pg.prototype) as Pg<'tokens'>

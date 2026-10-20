@@ -736,12 +736,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         stmt.all([value], (err, _rows) => {
           /* istanbul ignore if */
           if (err !== null && err !== undefined) {
-            this.logger.error("DELETE failed", {
-              table,
-              field,
-              query,
-              error: err,
-            });
+            this.logger.error("DELETE failed");
             reject(err);
           } else {
             this.logger.debug("[SQLite][deleteEqual] Successful", {
@@ -753,10 +748,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         });
         stmt.finalize((err) => {
           if (err) {
-            this.logger.error("[SQLite][deleteEqual] Statement finalize failed", {
-              table,
-              error: err,
-            });
+            this.logger.error("[SQLite][deleteEqual] Statement finalize failed");
             reject(err);
           }
         });
@@ -791,12 +783,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         stmt.all([condition1.value, condition2.value], (err, _rows) => {
           /* istanbul ignore if */
           if (err !== null && err !== undefined) {
-            this.logger.error("[SQLite][deleteEqualAnd] Failed", {
-              table,
-              conditions: [condition1.field, condition2.field],
-              query,
-              error: err,
-            });
+            this.logger.error("[SQLite][deleteEqualAnd] Failed");
             reject(err);
           } else {
             this.logger.debug("[SQLite][deleteEqualAnd] Successful", {
@@ -807,7 +794,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         });
         stmt.finalize((err) => {
           if (err) {
-            this.logger.error("DELETE with AND conditions statement finalize failed", { table, error: err });
+            this.logger.error("DELETE with AND conditions statement finalize failed");
             reject(err);
           }
         });
