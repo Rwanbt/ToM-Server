@@ -32,6 +32,18 @@ interface LookupsDetail {
   pepper: string
   updatedHashes: string[]
 }
+
+/** Never disclose directory hashes over cleartext or through redirect hops. */
+export function isSecureFederationPeer(address: string): boolean {
+  try {
+    const url = new URL(address)
+    const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
+    return (url.protocol === 'https:' || (url.protocol === 'http:' && loopback)) &&
+      !url.username && !url.password && !url.hash && !url.search
+  } catch {
+    return false
+  }
+}
 /**
  * update federated identity service hashes cron job.
  *
@@ -45,11 +57,17 @@ export default async (
   const prefixErrorMessage = '[Update federated identity service hashes]'
 
   let federatedIdentityServicesAddresses =
-    typeof conf.federated_identity_services === 'object'
+    Array.isArray(conf.federated_identity_services)
       ? (conf.federated_identity_services as string[])
       : conf.federated_identity_services != null
       ? (conf.federated_identity_services as string).split(/[,\s]+/)
       : []
+
+  federatedIdentityServicesAddresses = federatedIdentityServicesAddresses.filter(address => {
+    if (isSecureFederationPeer(address)) return true
+    logger.error('[Update federated identity service hashes] Invalid federation peer URL')
+    return false
+  })
 
   const serversIndexFail: number[] = []
 
@@ -57,7 +75,10 @@ export default async (
     await Promise.allSettled(
       // eslint-disable-next-line @typescript-eslint/promise-function-async
       federatedIdentityServicesAddresses.map((address) =>
-        fetch(encodeURI(`${address}/_matrix/identity/v2/hash_details`))
+        fetch(encodeURI(`${address.replace(/\/+$/, '')}/_matrix/identity/v2/hash_details`), {
+          redirect: 'error',
+          signal: AbortSignal.timeout(15000)
+        })
       )
     )
   )
@@ -161,8 +182,10 @@ export default async (
 
   const pushResults = await Promise.allSettled(
     lookupsRequestsDetails.map(async (detail) => {
-      const response = await fetch(encodeURI(`${detail.address}/_matrix/identity/v2/lookups`), {
+      const response = await fetch(encodeURI(`${detail.address.replace(/\/+$/, '')}/_matrix/identity/v2/lookups`), {
         method: 'post',
+        redirect: 'error',
+        signal: AbortSignal.timeout(15000),
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           algorithm: detail.algorithm,

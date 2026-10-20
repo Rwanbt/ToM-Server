@@ -3,12 +3,30 @@ import { describe, expect, it, mock } from 'bun:test'
 import type { TwakeLogger } from '../../logger'
 import type { Config } from '../types'
 import type UserDB from '../userdb'
-import updateFederatedHashes, { parseFederatedHashDetails } from './update-federated-identity-hashes'
+import updateFederatedHashes, { isSecureFederationPeer, parseFederatedHashDetails } from './update-federated-identity-hashes'
 
 const PRIVATE_EMAIL = 'very-private@example.org'
 const PRIVATE_PHONE = '+33 600 555 444'
 
 describe('federated hash_details input authorization', () => {
+  it('requires HTTPS except local integration fixtures and rejects URL credentials/fragments', () => {
+    for (const url of [
+      'http://example.org',
+      'https://user:password@example.org',
+      'https://example.org/#private-token',
+      'https://example.org/?access_token=secret',
+      'ftp://example.org',
+      'not a peer URL'
+    ]) expect(isSecureFederationPeer(url)).toBe(false)
+    expect(isSecureFederationPeer('https://example.org')).toBe(true)
+    expect(isSecureFederationPeer('http://127.0.0.1:18080')).toBe(true)
+  })
+
+  it('rejects insecure peer URLs before accessing directory contents', async () => {
+    const { logger, userDB } = await runRealCron('http://example.org')
+    expect(userDB.getAll).not.toHaveBeenCalled()
+    expect(logger.error).toHaveBeenCalledTimes(1)
+  })
   it('allows only a supported hash method, bounded pepper strings and no duplicates', () => {
     expect(parseFederatedHashDetails({
       algorithms: ['sha512', 'sha256'],
@@ -28,7 +46,8 @@ describe('federated hash_details input authorization', () => {
 
 async function withDisposableFederation(
   details: object,
-  check: (url: string, posts: Array<Record<string, unknown>>) => Promise<void>
+  check: (url: string, posts: Array<Record<string, unknown>>) => Promise<void>,
+  redirectPostTo?: string
 ) {
   const posts: Array<Record<string, unknown>> = []
   const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
@@ -38,6 +57,12 @@ async function withDisposableFederation(
       return
     }
     if (req.method === 'POST' && req.url?.endsWith('/lookups')) {
+      if (redirectPostTo) {
+        res.statusCode = 307
+        res.setHeader('Location', redirectPostTo)
+        res.end('{}')
+        return
+      }
       const chunks: Buffer[] = []
       for await (const chunk of req) chunks.push(Buffer.from(chunk))
       posts.push(JSON.parse(Buffer.concat(chunks).toString('utf8')))
@@ -79,6 +104,15 @@ async function runRealCron(url: string | string[]) {
 }
 
 describe('real federated hashing over disposable local HTTP', () => {
+  it('does not forward directory hashes to a redirected host', async () => {
+    const details = { algorithms: ['sha256'], lookup_pepper: 'private-pepper' }
+    await withDisposableFederation(details, async (targetUrl, leakedPosts) => {
+      await withDisposableFederation(details, async (sourceUrl) => {
+        await runRealCron(sourceUrl)
+        expect(leakedPosts).toHaveLength(0)
+      }, `${targetUrl}/_matrix/identity/v2/lookups`)
+    })
+  })
   it('never transmits cleartext contact data or logs directory secrets', async () => {
     await withDisposableFederation({ algorithms: ['sha256'], lookup_pepper: 'pepper-one', alt_lookup_peppers: ['pepper-two'] }, async (url, posts) => {
       const { logger } = await runRealCron(url)
