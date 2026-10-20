@@ -1,10 +1,10 @@
-import { createServer, type Server } from 'node:http'
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { afterEach, describe, expect, it, mock, spyOn } from 'bun:test'
 import { MatrixResolve } from '../../matrix-resolve/index'
 import validateMatrixToken from './validateMatrixToken'
 
 const servers: Server[] = []
-async function serve(handler: Parameters<typeof createServer>[0]): Promise<string> {
+async function serve(handler: (req: IncomingMessage, res: ServerResponse) => void): Promise<string> {
   const server = createServer(handler)
   servers.push(server)
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))

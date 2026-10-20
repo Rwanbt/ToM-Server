@@ -48,7 +48,7 @@ const validateMatrixToken = (logger: TwakeLogger) => {
           fetch(endpoint.toString(), {
             // Never forward a bearer-token URL to a redirect destination.
             redirect: 'error',
-            timeout: 15000
+            signal: AbortSignal.timeout(15000)
           })
             // eslint-disable-next-line @typescript-eslint/promise-function-async
             .then((res) => {
