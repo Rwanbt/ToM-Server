@@ -23,6 +23,26 @@ afterEach(async () => {
 })
 
 describe('Matrix OpenID userinfo outbound token boundary', () => {
+  it('rejects an OpenID subject whose Matrix homeserver is not the requested authority', async () => {
+    const base = await serve((_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ sub: '@victim:unrelated.example.org' }))
+    })
+    spyOn(MatrixResolve.prototype, 'resolve').mockResolvedValue(base)
+    await expect(validateMatrixToken({ warn: mock() } as never)('example.org', 'valid-bearer'))
+      .rejects.toBe('Invalid response from Matrix Server')
+  })
+
+  it('accepts an MXID for the requested Matrix authority including an explicit port', async () => {
+    const base = await serve((_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ sub: '@alice:example.org:8448' }))
+    })
+    spyOn(MatrixResolve.prototype, 'resolve').mockResolvedValue(base)
+    expect(await validateMatrixToken({ warn: mock() } as never)('example.org:8448', 'valid-bearer'))
+      .toBe('@alice:example.org:8448')
+  })
+
   it('rejects a resolved remote HTTP endpoint before sending credentials', async () => {
     const resolve = spyOn(MatrixResolve.prototype, 'resolve')
       .mockResolvedValue('http://matrix.example.org/')

@@ -56,12 +56,15 @@ const validateMatrixToken = (logger: TwakeLogger) => {
               return res.json()
             })
             .then((userInfo) => {
-              if ((userInfo as userInfoResponse).sub != null) {
-                const cmp = (userInfo as userInfoResponse).sub.match(
-                  /^@(.+?):[^:]+$/
-                )
-                if (cmp != null) {
-                  resolve((userInfo as userInfoResponse).sub)
+              if (typeof (userInfo as userInfoResponse).sub === 'string') {
+                const subject = (userInfo as userInfoResponse).sub
+                // A homeserver may authenticate only MXIDs in its requested
+                // authority. Otherwise a hostile server could assert another
+                // homeserver's user ID through OpenID userinfo.
+                const cmp = /^@[^:]+:(.+)$/.exec(subject)
+                if (cmp != null &&
+                    cmp[1]?.toLowerCase() === matrixServer.toLowerCase()) {
+                  resolve(subject)
                 } else {
                   reject('Invalid response from Matrix Server')
                 }
