@@ -88,7 +88,8 @@ test('Get authentication token', async () => {
     status: 200,
     json: () => {
       return {
-        sub: '@dwho:example.com',
+        // OpenID subject must belong to the matrix_server_name authority.
+        sub: '@dwho:matrix.example.com',
         'm.server': 'matrix.example.com:8448'
       }
     }
