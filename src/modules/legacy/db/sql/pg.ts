@@ -213,13 +213,7 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
         });
         this.db.query(query, vals, (err, rows) => {
           if (err) {
-            this.logger.error("[Pg][update] Failed", {
-              table,
-              fields: names,
-              whereField: field,
-              query,
-              error: err,
-            });
+            this.logger.error("[Pg][update] Failed");
             reject(err);
           } else {
             this.logger.debug("[Pg][update] Successful", {
@@ -953,25 +947,13 @@ class Pg<T extends string> extends SQL<T> implements DbBackend<T> {
         }
 
         const query = `DELETE FROM ${table} WHERE ${condition}`;
-        this.logger.debug("[Pg][deleteWhere] Executing", {
-          table,
-          conditions: filters,
-          operators,
-          query,
-        });
+        this.logger.debug("[Pg][deleteWhere] Executing");
         this.db.query(
           query,
           values as (string[] & Array<string | number>) | (number[] & Array<string | number>),
           (err) => {
             if (err) {
-              this.logger.error("[Pg][deleteWhere] Failed", {
-                table,
-                conditions: filters,
-                operators,
-                values,
-                query,
-                error: err,
-              });
+              this.logger.error("[Pg][deleteWhere] Failed");
               reject(err);
             } else {
               this.logger.debug("[Pg][deleteWhere] Successful", {

@@ -140,13 +140,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
       stmt.all(vals, (err: string, rows: Array<Record<string, string | number>>) => {
         /* istanbul ignore if */
         if (err !== null && err !== undefined) {
-          this.logger.error("[SQLite][update] Failed", {
-            table,
-            fields: names,
-            whereField: field,
-            query,
-            error: err,
-          });
+          this.logger.error("[SQLite][update] Failed");
           reject(err);
         } else {
           this.logger.debug("[SQLite][update] Successful", {
@@ -158,10 +152,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
       });
       stmt.finalize((err) => {
         if (err) {
-          this.logger.error("[SQLite][update] Statement finalize failed", {
-            table,
-            error: err,
-          });
+          this.logger.error("[SQLite][update] Statement finalize failed");
           reject(err);
         }
       });
@@ -895,12 +886,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         }
 
         const query = `DELETE FROM ${table} WHERE ${condition}`;
-        this.logger.debug("[SQLite][deleteWhere] Executing", {
-          table,
-          conditions: filters,
-          operators,
-          query,
-        });
+        this.logger.debug("[SQLite][deleteWhere] Executing");
         const stmt = this.db.prepare(query);
 
         stmt.all(
@@ -908,14 +894,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
           (err: string) => {
             /* istanbul ignore if */
             if (err !== null && err !== undefined) {
-              this.logger.error("[SQLite][deleteWhere] Failed", {
-                table,
-                conditions: filters,
-                operators,
-                values,
-                query,
-                error: err,
-              });
+              this.logger.error("[SQLite][deleteWhere] Failed");
               reject(err);
             } else {
               this.logger.debug("[SQLite][deleteWhere] Successful", {
@@ -927,7 +906,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
         );
         stmt.finalize((err) => {
           if (err) {
-            this.logger.error("DELETE with WHERE conditions statement finalize failed", { table, error: err });
+            this.logger.error("DELETE with WHERE conditions statement finalize failed");
             reject(err);
           }
         });
