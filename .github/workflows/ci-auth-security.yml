@@ -42,9 +42,18 @@ jobs:
         with:
           bun-version: '1.4.3'
       - run: bun install --frozen-lockfile
-      # NO continue-on-error: the global suite is currently NOT qualified.
+      # Keep Bun's real failure exit code and console diagnostics. JUnit adds
+      # a machine-readable artifact tied to the exact candidate SHA.
       - name: All Bun tests — required release gate
-        run: bun test --isolate
+        run: bun test --isolate --reporter=junit --reporter-outfile=bun-regression.junit.xml
+      - name: Archive exact-SHA Bun JUnit report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: tom-bun-regression-${{ github.sha }}-attempt-${{ github.run_attempt }}
+          path: bun-regression.junit.xml
+          if-no-files-found: error
+          retention-days: 14
 
   typecheck:
     runs-on: ubuntu-latest
