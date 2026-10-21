@@ -84,6 +84,31 @@ describe('federated identity trust boundary preserves complete IPv6 addresses', 
     expect(recorded).not.toContain(secret)
     expect(recorded).not.toContain('access_token=')
   })
+  it('rejects malformed or inherited federated query tokens with no database access', async () => {
+    const inherited = Object.create({ access_token: 'inherited-secret' })
+    for (const query of [
+      { access_token: 'space separated' },
+      { access_token: '   ' },
+      { access_token: 42 },
+      { access_token: { nested: 'secret' } },
+      inherited
+    ]) {
+      let finish!: (status: number) => void
+      const result = new Promise<number>(resolve => { finish = resolve })
+      const db = { get: mock() }
+      const logger = { info: mock(), debug: mock(), error: mock(), warn: mock() }
+      const callback = mock()
+      Authenticate(db as never, [], false, logger as never)(
+        { headers: {}, query, socket: { remoteAddress: '198.51.100.7' }, method: 'GET', originalUrl: '/test' } as never,
+        { writeHead: (status: number) => finish(status), write: () => {}, end: () => {} } as never,
+        callback, false
+      )
+      expect(await result).toBe(401)
+      expect(callback).not.toHaveBeenCalled()
+      expect(db.get).not.toHaveBeenCalled()
+    }
+  })
+
   it('rejects structured query bearer credentials before SQL token lookup', async () => {
     let finish!: (status: number) => void
     const result = new Promise<number>(resolve => { finish = resolve })
