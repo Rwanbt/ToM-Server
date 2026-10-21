@@ -22,7 +22,7 @@ export const Authenticate = <T extends string = never>(
     if (req.headers.authorization != null) {
       const re = req.headers.authorization.match(tokenRe)
       if (re != null) {
-        token = re[1]
+        token = re[1] ?? null
       }
       // @ts-expect-error req.query exists
     } else if (req.query && Object.keys(req.query).length > 0) {
@@ -30,21 +30,23 @@ export const Authenticate = <T extends string = never>(
       token = req.query.access_token
     }
     if (token != null) {
+      const authenticatedToken = token
       db.get('accessTokens', ['data'], { id: token })
         .then((rows) => {
           // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-          if (!rows || rows.length === 0) {
+          const tokenRow = rows?.[0]
+          if (!tokenRow || typeof tokenRow.data !== 'string') {
             // Never log a bearer token, including tokens that are unknown to us.
             logger.error(`${req.socket.remoteAddress as string} sent an inexistent token`)
             send(res, 401, errMsg('unAuthorized'))
           } else {
             if (requiresTerms) {
               db.get('userPolicies', ['policy_name', 'accepted'], {
-                user_id: JSON.parse(rows[0].data as string).sub
+                user_id: JSON.parse(tokenRow.data).sub
               })
                 .then((policies) => {
                   if (policies.length === 0) {
-                    callback(JSON.parse(rows[0].data as string), token)
+                    callback(JSON.parse(tokenRow.data), authenticatedToken)
                     // If there are no policies to accept. This assumes that for each policy we add to the config, we update the database and add the corresponding policy with accepted = 0 for all users
                     return
                   }
@@ -58,7 +60,7 @@ export const Authenticate = <T extends string = never>(
                     )
                     send(res, 403, errMsg('termsNotSigned'))
                   } else {
-                    callback(JSON.parse(rows[0].data as string), token)
+                    callback(JSON.parse(tokenRow.data), authenticatedToken)
                   }
                 })
                 .catch((e) => {
@@ -69,7 +71,7 @@ export const Authenticate = <T extends string = never>(
                   send(res, 403, errMsg('termsNotSigned'))
                 })
             } else {
-              callback(JSON.parse(rows[0].data as string), token)
+              callback(JSON.parse(tokenRow.data), token)
             }
           }
         })
@@ -124,5 +126,7 @@ export const buildUrl = (base: string, path: string): string => {
  * @return {string}
  */
 export const getServerNameFromMatrixId = (mxid: string): string => {
-  return mxid.split(':')[1]
+  const server = mxid.split(':')[1]
+  if (!server) throw new Error('Invalid Matrix ID: missing server name')
+  return server
 }
