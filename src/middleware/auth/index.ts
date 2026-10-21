@@ -76,8 +76,10 @@ export class TokenValidator {
     let response: Response;
     try {
       response = await this.#http.get(path, token);
-    } catch (err) {
-      throw this.#homeserverError(path, err instanceof Error ? err.message : translate("log.net.request_failed"));
+    } catch {
+      // Transport errors may quote Authorization headers or request payloads.
+      // Never interpolate upstream exception text into security logs.
+      throw this.#homeserverError(path, translate("log.net.request_failed"));
     }
     if (REJECTED_STATUSES.has(response.status)) {
       return undefined;
