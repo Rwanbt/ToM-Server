@@ -24,7 +24,12 @@ describe("Matrix whoami transport diagnostics", () => {
     };
     expect(loadMessages("assets/i18n", logger as never)).toBe(true);
     // Exercise the real TokenValidator -> HttpClient -> fetch error path.
-    globalThis.fetch = ((_url: unknown, init?: { headers?: unknown }) => {
+    globalThis.fetch = ((
+      _url: unknown,
+      init?: {
+        headers?: unknown;
+      },
+    ) => {
       requested(init?.headers);
       return Promise.reject(new Error(`network adapter failed: Authorization: Bearer ${token}`));
     }) as unknown as typeof fetch;
