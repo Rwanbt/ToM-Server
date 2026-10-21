@@ -9,17 +9,24 @@ describe("Matrix whoami transport diagnostics", () => {
     const token = "SENTINEL_PRIVATE_MATRIX_BEARER_NOT_FOR_LOGS_57391";
     const originalFetch = globalThis.fetch;
     const logged: unknown[][] = [];
-    const warn = mock((...args: unknown[]) => { logged.push(args); });
+    const warn = mock((...args: unknown[]) => {
+      logged.push(args);
+    });
     const requested = mock();
     // Production boot loads the English warning template, which interpolates
     // the transport reason. Without this, the unloaded i18n fallback hides
     // the actual credential disclosure and creates a false-green test.
-    const logger = { warn, debug: () => {}, info: () => {}, error: () => {} };
+    const logger = {
+      warn,
+      debug: () => {},
+      info: () => {},
+      error: () => {},
+    };
     expect(loadMessages("assets/i18n", logger as never)).toBe(true);
     // Exercise the real TokenValidator -> HttpClient -> fetch error path.
-    globalThis.fetch = (async (_url: unknown, init?: { headers?: unknown }) => {
+    globalThis.fetch = ((_url: unknown, init?: { headers?: unknown }) => {
       requested(init?.headers);
-      throw new Error(`network adapter failed: Authorization: Bearer ${token}`);
+      return Promise.reject(new Error(`network adapter failed: Authorization: Bearer ${token}`));
     }) as unknown as typeof fetch;
 
     try {
@@ -35,14 +42,20 @@ describe("Matrix whoami transport diagnostics", () => {
       );
       const error = await new Promise<unknown>((resolve) => {
         validator.middleware()(
-          { headers: { authorization: `Bearer ${token}` } } as never,
+          {
+            headers: {
+              authorization: `Bearer ${token}`,
+            },
+          } as never,
           {} as never,
           (err?: unknown) => resolve(err),
         );
       });
 
       expect(requested).toHaveBeenCalledTimes(1);
-      expect(requested.mock.calls[0]?.[0]).toEqual({ Authorization: `Bearer ${token}` });
+      expect(requested.mock.calls[0]?.[0]).toEqual({
+        Authorization: `Bearer ${token}`,
+      });
       expect(error).toBeInstanceOf(DomainError);
       expect(warn).toHaveBeenCalledTimes(1);
       expect(JSON.stringify(logged)).not.toContain(token);
