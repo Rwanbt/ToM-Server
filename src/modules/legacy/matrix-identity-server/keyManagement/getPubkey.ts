@@ -6,13 +6,18 @@ const getPubkey = <T extends string = never>(
   idServer: IdentityServerDB<T>
 ): expressAppHandler => {
   return (req, res) => {
-    const _keyID: string = (req as Request).params.keyId
+    const keyId = (req as Request).params.keyId
+    if (typeof keyId !== 'string') {
+      send(res, 400, errMsg('invalidParam', 'A key ID is required'))
+      return
+    }
+    const _keyID = keyId
 
     idServer.db
       .get('shortTermKeypairs', ['public'], { keyID: _keyID })
       // eslint-disable-next-line @typescript-eslint/promise-function-async
       .then((rows) => {
-        if (rows.length === 1) {
+        if (rows.length === 1 && rows[0]) {
           send(res, 200, { public_key: rows[0].public })
         } else {
           return idServer.db
@@ -24,7 +29,7 @@ const getPubkey = <T extends string = never>(
                   404,
                   errMsg('notFound', 'The public key was not found')
                 )
-              } else {
+              } else if (rows[0]) {
                 send(res, 200, { public_key: rows[0].public })
               }
             })

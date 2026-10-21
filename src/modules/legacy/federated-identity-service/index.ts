@@ -15,7 +15,7 @@ const tables = {
 }
 
 export default class FederatedIdentityService extends MatrixIdentityServer<fdDbCollections> {
-  routes = Router()
+  routes: ReturnType<typeof Router> = Router()
   declare conf: Config
   declare db: FdServerDb
   constructor(

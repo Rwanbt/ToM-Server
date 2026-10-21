@@ -22,10 +22,10 @@ describe("Hash methods", () => {
     hash.ready
       .then(() => {
         Object.keys(sha256Results).forEach((str) => {
-          expect(hash.sha256(str)).toEqual(sha256Results[str]);
-          expect(hash.sha256(...str.split(" "))).toEqual(sha256Results[str]);
-          expect(hash.sha512(str)).toEqual(sha512Results[str]);
-          expect(hash.sha512(...str.split(" "))).toEqual(sha512Results[str]);
+          expect(hash.sha256(str)).toEqual(sha256Results[str]!);
+          expect(hash.sha256(...str.split(" "))).toEqual(sha256Results[str]!);
+          expect(hash.sha512(str)).toEqual(sha512Results[str]!);
+          expect(hash.sha512(...str.split(" "))).toEqual(sha512Results[str]!);
         });
         done();
       })

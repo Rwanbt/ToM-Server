@@ -10,9 +10,14 @@ const hashDetails = <T extends string = never>(
       idServer.db
         .get('keys', ['data'], { name: 'pepper' })
         .then((rows) => {
+          const pepper = rows[0]?.data
+          if (typeof pepper !== 'string') {
+            send(res, 500, errMsg('unknown', 'Lookup pepper is unavailable'))
+            return
+          }
           send(res, 200, {
             algorithms: supportedHashes,
-            lookup_pepper: rows[0].data
+            lookup_pepper: pepper
           })
         })
         .catch((e) => {
