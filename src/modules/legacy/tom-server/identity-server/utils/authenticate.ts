@@ -36,7 +36,8 @@ const Authenticate = (
       const query = (req as unknown as { query?: { access_token?: unknown } }).query
       // Express parsers can supply arrays and objects for repeated or nested
       // query keys; only a single, nonempty bearer credential is valid.
-      if (typeof query?.access_token === 'string' && query.access_token.length > 0) {
+      if (query && Object.prototype.hasOwnProperty.call(query, 'access_token') &&
+        typeof query.access_token === 'string' && /^\S+$/.test(query.access_token)) {
         token = query.access_token
       }
     }

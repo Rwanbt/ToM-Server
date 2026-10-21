@@ -62,7 +62,8 @@ export const Authenticate = (
           }
         } else {
           const query = (req as unknown as { query?: { access_token?: unknown } }).query
-          if (typeof query?.access_token === 'string' && query.access_token.length > 0) {
+          if (query && Object.prototype.hasOwnProperty.call(query, 'access_token') &&
+            typeof query.access_token === 'string' && /^\S+$/.test(query.access_token)) {
             token = query.access_token
           }
         }

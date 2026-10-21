@@ -19,7 +19,7 @@ describe('legacy ToM login log hygiene', () => {
     expect(JSON.stringify(entries)).not.toContain(SECRET)
   })
   it('rejects array and object access_token query values before database or remote authentication', () => {
-    for (const candidate of [['token1', 'token2'], { nested: 'token' }, '']) {
+    for (const candidate of [['token1', 'token2'], { nested: 'token' }, '', 'mal formed', '  ', 42]) {
       const db = { get: mock() }
       const res = { writeHead: mock(), write: mock(), end: mock() }
       const logger = { warn: mock(), error: mock() }
@@ -31,6 +31,41 @@ describe('legacy ToM login log hygiene', () => {
       expect(db.get).not.toHaveBeenCalled()
     }
   })
+  it('rejects an inherited query token without attempting remote whoami', () => {
+    const db = { get: mock() }
+    const logger = { warn: mock(), error: mock(), debug: mock(), info: mock() }
+    const remote = mock()
+    const response = { writeHead: mock(), write: mock(), end: mock() }
+    const query = Object.create({ access_token: 'inherited-secret' })
+    Authenticate(db as never, {} as never, logger as never, remote as never)(
+      { headers: {}, query } as never, response as never,
+      () => { throw Error('inherited query credentials must not authenticate') })
+    expect(response.writeHead).toHaveBeenCalled()
+    expect(db.get).not.toHaveBeenCalled()
+    expect(remote).not.toHaveBeenCalled()
+  })
+
+  it('keeps supporting a single valid query token for Matrix whoami', async () => {
+    const db = { get: mock(async () => []), insert: mock(async () => []) }
+    const logger = { warn: mock(), error: mock(), debug: mock(), info: mock() }
+    const remote = mock(async () => ({
+      ok: true,
+      json: async () => ({ user_id: '@alice:example.org' })
+    }))
+    const response = { writeHead: mock(), write: mock(), end: mock() }
+    let complete!: (value: unknown) => void
+    const authenticated = new Promise<unknown>(resolve => { complete = resolve })
+    Authenticate(db as never, { matrix_server: 'example.org' } as never, logger as never, remote as never)(
+      { headers: {}, query: { access_token: 'query-credential' } } as never,
+      response as never, (data, token) => complete({ data, token }))
+    expect(await authenticated).toEqual({
+      data: { sub: '@alice:example.org', epoch: expect.any(Number) },
+      token: 'query-credential'
+    })
+    expect(db.get).toHaveBeenCalledWith('matrixTokens', ['data'], { id: 'query-credential' })
+    expect(remote).toHaveBeenCalledTimes(1)
+  })
+
   it('does not authenticate a token from a non-success Matrix whoami response', async () => {
     const db = { get: mock(async () => []), insert: mock(async () => {}) }
     const logger = { warn: mock(), error: mock(), debug: mock(), info: mock() }
