@@ -14,7 +14,7 @@ describe("Matrix whoami transport diagnostics", () => {
     globalThis.fetch = (async (_url, init) => {
       requested(init?.headers);
       throw new Error(`network adapter failed: Authorization: Bearer ${token}`);
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     try {
       const validator = new TokenValidator(
