@@ -54,7 +54,7 @@ jobs:
             echo "Unexpected checked out commit: $actual" >&2
             exit 1
           fi
-          printf '%s\\n' "$actual" > bun-regression.source-sha.txt
+          printf '%s\n' "$actual" > bun-regression.source-sha.txt
       # Keep Bun's real failure exit code and console diagnostics. JUnit adds
       # a machine-readable artifact tied to the exact candidate SHA.
       - name: All Bun tests — required release gate
