@@ -102,9 +102,9 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
       }
       const names: string[] = []
       const vals: Array<string | number> = []
-      Object.keys(values).forEach((k) => {
+      Object.entries(values).forEach(([k, value]) => {
         names.push(k)
-        vals.push(values[k])
+        vals.push(value)
       })
       const query = `INSERT INTO ${table}(${names.join(',')}) VALUES(${names
         .map((v) => '?')
@@ -163,9 +163,9 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
       }
       const names: string[] = []
       const vals: Array<string | number> = []
-      Object.keys(values).forEach((k) => {
+      Object.entries(values).forEach(([k, entryValue]) => {
         names.push(k)
-        vals.push(values[k])
+        vals.push(entryValue)
       })
       vals.push(value)
       const query = `UPDATE ${table} SET ${names.join(
@@ -339,7 +339,7 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
                   .join(' OR ')})`
               } else {
                 index++
-                values.push(filterFields[key].toString())
+                values.push(String(filterFields[key]))
                 localCondition += `${key}${op}$${index}`
               }
             })
@@ -619,7 +619,7 @@ class SQLite<T extends string> extends SQL<T> implements IdDbBackend<T> {
                   .join(' OR ')})`
               } else {
                 index++
-                values.push(filterFields[key].toString())
+                values.push(String(filterFields[key]))
                 localCondition += `${key}${op}$${index}`
               }
             })

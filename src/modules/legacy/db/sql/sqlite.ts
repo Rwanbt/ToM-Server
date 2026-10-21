@@ -79,9 +79,9 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
       }
       const names: string[] = [];
       const vals: Array<string | number> = [];
-      Object.keys(values).forEach((k) => {
+      Object.entries(values).forEach(([k, value]) => {
         names.push(k);
-        vals.push(values[k]);
+        vals.push(value);
       });
       const query = `INSERT INTO ${table}(${names.join(",")}) VALUES(${names.map((_v) => "?").join(",")}) RETURNING *;`;
       this.logger.debug("[SQLite][insert] Executing", {
@@ -135,9 +135,9 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
       }
       const names: string[] = [];
       const vals: Array<string | number> = [];
-      Object.keys(values).forEach((k) => {
+      Object.entries(values).forEach(([k, entryValue]) => {
         names.push(k);
-        vals.push(values[k]);
+        vals.push(entryValue);
       });
       vals.push(value);
       const query = `UPDATE ${table} SET ${names.join("=?,")}=? WHERE ${field}=? RETURNING *;`;
@@ -298,7 +298,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
                   .join(" OR ")})`;
               } else {
                 index++;
-                values.push(filterFields[key].toString());
+                values.push(String(filterFields[key]));
                 localCondition += `${key}${op}$${index}`;
               }
             });
@@ -548,7 +548,7 @@ class SQLite<T extends string> extends SQL<T> implements DbBackend<T> {
                   .join(" OR ")})`;
               } else {
                 index++;
-                values.push(filterFields[key].toString());
+                values.push(String(filterFields[key]));
                 localCondition += `${key}${op}$${index}`;
               }
             });
