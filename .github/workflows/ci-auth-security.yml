@@ -38,13 +38,37 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+          # The default pull_request checkout is a synthetic merge commit.
+          # Audit the exact PR head instead; main pushes use their push SHA.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: '1.4.3'
       - run: bun install --frozen-lockfile
-      # NO continue-on-error: the global suite is currently NOT qualified.
+      - name: Record and verify exact tested source SHA
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          expected="${{ github.event.pull_request.head.sha || github.sha }}"
+          if [ "$actual" != "$expected" ]; then
+            echo "Unexpected checked out commit: $actual" >&2
+            exit 1
+          fi
+          printf '%s\n' "$actual" > bun-regression.source-sha.txt
+      # Keep Bun's real failure exit code and console diagnostics. JUnit adds
+      # a machine-readable artifact tied to the exact candidate SHA.
       - name: All Bun tests — required release gate
-        run: bun test --isolate
+        run: bun test --isolate --reporter=junit --reporter-outfile=bun-regression.junit.xml
+      - name: Archive exact-SHA Bun JUnit report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: tom-bun-regression-${{ github.event.pull_request.head.sha || github.sha }}-attempt-${{ github.run_attempt }}
+          path: |
+            bun-regression.junit.xml
+            bun-regression.source-sha.txt
+          if-no-files-found: error
+          retention-days: 14
 
   typecheck:
     runs-on: ubuntu-latest
