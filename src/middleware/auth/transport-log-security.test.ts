@@ -11,7 +11,7 @@ describe("Matrix whoami transport diagnostics", () => {
     const warn = mock((...args: unknown[]) => { logged.push(args); });
     const requested = mock();
     // Exercise the real TokenValidator -> HttpClient -> fetch error path.
-    globalThis.fetch = (async (_url, init) => {
+    globalThis.fetch = (async (_url: unknown, init?: { headers?: unknown }) => {
       requested(init?.headers);
       throw new Error(`network adapter failed: Authorization: Bearer ${token}`);
     }) as unknown as typeof fetch;
