@@ -82,4 +82,42 @@ describe('identity token logs must never expose bearer credentials', () => {
     await Promise.resolve()
     expect(callback).not.toHaveBeenCalled()
   })
+
+  it('accepts a single well-formed query token for legacy Matrix clients', async () => {
+    const { logger, entries } = logging()
+    const { res } = response()
+    const db = { get: mock().mockResolvedValue([{ data: JSON.stringify({ sub: '@safe:example.org' }) }]) }
+    let result: unknown = null
+    const req = { ...request(), headers: {}, query: { access_token: SECRET } }
+    Authenticate(db as never, logger as never)(req as never, res as never, (data, token) => {
+      result = { data, token }
+    }, false)
+    await Promise.resolve()
+    expect(db.get).toHaveBeenCalledWith('accessTokens', ['data'], { id: SECRET })
+    expect(result).toEqual({ data: { sub: '@safe:example.org' }, token: SECRET })
+    expect(loggedText(entries)).not.toContain(SECRET)
+  })
+
+  const malformedTokens: Array<{ name: string; value: unknown }> = [
+    { name: 'array of repeated query parameters', value: [SECRET, 'another'] },
+    { name: 'nested query object', value: { nested: SECRET } },
+    { name: 'empty string', value: '' },
+    { name: 'whitespace-bearing string', value: 'part one' },
+    { name: 'non-string number', value: 12 }
+  ]
+  for (const { name, value } of malformedTokens) {
+    it('rejects ' + name + ' before database access', async () => {
+      const { logger, entries } = logging()
+      const { res, done } = response()
+      const db = { get: mock().mockResolvedValue([{ data: JSON.stringify({ sub: '@safe:example.org' }) }]) }
+      const callback = mock()
+      const req = { ...request(), headers: {}, query: { access_token: value } }
+      Authenticate(db as never, logger as never)(req as never, res as never, callback, false)
+      expect(await done).toBe(401)
+      expect(db.get).not.toHaveBeenCalled()
+      expect(callback).not.toHaveBeenCalled()
+      expect(loggedText(entries)).not.toContain(SECRET)
+    })
+  }
+
 })

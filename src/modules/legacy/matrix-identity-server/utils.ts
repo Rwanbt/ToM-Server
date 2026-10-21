@@ -20,14 +20,17 @@ export const Authenticate = <T extends string = never>(
   return (req, res, callback, requiresTerms = true) => {
     let token: string | null = null
     if (req.headers.authorization != null) {
-      const re = req.headers.authorization.match(tokenRe)
-      if (re != null) {
-        token = re[1] ?? null
+      token = tokenRe.exec(req.headers.authorization)?.[1] ?? null
+    } else if ('query' in req && req.query && typeof req.query === 'object') {
+      // Express may parse repeated/nested access_token parameters into arrays
+      // or objects. Never forward those untrusted types to the token store.
+      // Do not fall back to a query token when an Authorization header exists.
+      const queryToken = Object.prototype.hasOwnProperty.call(req.query, 'access_token')
+        ? (req.query as Record<string, unknown>).access_token
+        : undefined
+      if (typeof queryToken === 'string' && /^\S+$/.test(queryToken)) {
+        token = queryToken
       }
-      // @ts-expect-error req.query exists
-    } else if (req.query && Object.keys(req.query).length > 0) {
-      // @ts-expect-error req.query.access_token may be null
-      token = req.query.access_token
     }
     if (token != null) {
       db.get('accessTokens', ['data'], { id: token })
