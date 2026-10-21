@@ -22,7 +22,7 @@ const Authenticate = (
     let token: string | null = null
     if (req.headers?.authorization != null) {
       const re = req.headers.authorization.match(tokenRe)
-      if (re != null) {
+      if (re?.[1] != null) {
         token = re[1]
       }
       // @ts-expect-error req.query exists
@@ -33,10 +33,11 @@ const Authenticate = (
     if (token != null) {
       db.get('matrixTokens', ['data'], { id: token })
         .then((rows) => {
-          if (rows.length === 0) {
+          const row = rows[0]
+          if (row == null || typeof row.data !== 'string') {
             throw Error()
           }
-          callback(JSON.parse(rows[0].data as string), token)
+          callback(JSON.parse(row.data), token)
         })
         .catch((e) => {
           // Try to get token from matrix

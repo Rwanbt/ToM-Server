@@ -27,7 +27,7 @@ export const Authenticate = (
 
     const parsedAdressArray = remoteAddress.split(':')
     const originalRequesterIPAddress =
-      parsedAdressArray[parsedAdressArray.length - 1]
+      parsedAdressArray[parsedAdressArray.length - 1] ?? ''
 
     logger.info('', {
       ip: originalRequesterIPAddress,
@@ -54,7 +54,7 @@ export const Authenticate = (
         let token: string | null = null
         if (req.headers.authorization != null) {
           const re = req.headers.authorization.match(tokenRe)
-          if (re != null) {
+          if (re?.[1] != null) {
             token = re[1]
           }
           // @ts-expect-error req.query exists
@@ -65,7 +65,12 @@ export const Authenticate = (
         if (token != null) {
           db.get('accessTokens', ['data'], { id: token })
             .then((rows) => {
-              callbackMethod(JSON.parse(rows[0].data as string), token)
+              const row = rows[0]
+              if (row == null || typeof row.data !== 'string') {
+                send(res, 401, errMsg('unAuthorized'))
+                return
+              }
+              callbackMethod(JSON.parse(row.data), token)
             })
             .catch((e) => {
               send(res, 401, errMsg('unAuthorized'))
