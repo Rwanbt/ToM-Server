@@ -1,6 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
 
 import { DomainError } from "../../errors/domain-error";
+import { loadMessages } from "../../i18n/index";
 import { TokenValidator } from "./index";
 
 describe("Matrix whoami transport diagnostics", () => {
@@ -10,6 +11,11 @@ describe("Matrix whoami transport diagnostics", () => {
     const logged: unknown[][] = [];
     const warn = mock((...args: unknown[]) => { logged.push(args); });
     const requested = mock();
+    // Production boot loads the English warning template, which interpolates
+    // the transport reason. Without this, the unloaded i18n fallback hides
+    // the actual credential disclosure and creates a false-green test.
+    const logger = { warn, debug: () => {}, info: () => {}, error: () => {} };
+    expect(loadMessages("assets/i18n", logger as never)).toBe(true);
     // Exercise the real TokenValidator -> HttpClient -> fetch error path.
     globalThis.fetch = (async (_url: unknown, init?: { headers?: unknown }) => {
       requested(init?.headers);
@@ -25,7 +31,7 @@ describe("Matrix whoami transport diagnostics", () => {
           tokenCacheSize: 10,
           tokenCacheTtlMs: 60000,
         },
-        { warn } as never,
+        logger as never,
       );
       const error = await new Promise<unknown>((resolve) => {
         validator.middleware()(
