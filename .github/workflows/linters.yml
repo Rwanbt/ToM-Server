@@ -65,6 +65,12 @@ jobs:
         with:
           version: "2.5.8"
 
+      - name: Show exact Biome formatter differences for regression test
+        shell: bash
+        run: |
+          biome format src/middleware/auth/transport-log-security.test.ts > "$RUNNER_TEMP/auth-formatted.ts"
+          diff -u src/middleware/auth/transport-log-security.test.ts "$RUNNER_TEMP/auth-formatted.ts" || test "$?" -eq 1
+
       - run: biome ci . --vcs-enabled=true --reporter=github --no-errors-on-unmatched --max-diagnostics=none
 
   markdownlint:
