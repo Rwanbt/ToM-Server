@@ -11,6 +11,7 @@ import {
 } from '../utils/index'
 import {
   Authenticate as utilsAuthenticate,
+  REVOKED_TOKEN_MARKER,
   type AuthenticationFunction
 } from './utils'
 import versions from './versions'
@@ -260,6 +261,47 @@ export default class MatrixIdentityServer<T extends string = never> {
     idfieldsToConvert.forEach((id) => {
       this.conf = { ...this.conf, [id]: Number(this.conf[id]) }
     })
+  }
+
+  /**
+   * Records the revocation of a bearer credential.
+   *
+   * The session row is replaced by a revocation marker: the credential keeps
+   * being refused by every authentication path, and no cached identity can
+   * take its place. The marker is never removed — a revoked credential stays
+   * revoked.
+   *
+   * @param token - The revoked bearer credential.
+   */
+  async recordRevocation(token: string): Promise<void> {
+    const existing = await this.db.get('accessTokens', ['id'], { id: token })
+    if (existing.some((row) => row.id === token)) {
+      await this.db.update(
+        'accessTokens',
+        { data: REVOKED_TOKEN_MARKER },
+        'id',
+        token
+      )
+      return
+    }
+    await this.db.insert('accessTokens', {
+      id: token,
+      data: REVOKED_TOKEN_MARKER
+    })
+  }
+
+  /**
+   * Revokes a bearer credential.
+   *
+   * Revocation invalidates every place the credential is remembered: the
+   * identity-server session row and the caches that hold a homeserver
+   * identity for it. Deployments that keep such a cache must drop it as
+   * well — see the ToM server override.
+   *
+   * @param token - The revoked bearer credential.
+   */
+  async revokeToken(token: string): Promise<void> {
+    await this.recordRevocation(token)
   }
 
   cleanJobs(): void {

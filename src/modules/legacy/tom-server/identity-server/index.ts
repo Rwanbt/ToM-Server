@@ -241,6 +241,20 @@ export default class TwakeIdentityServer extends MatrixIdentityServer<twakeDbCol
   }
 
   /**
+   * Revokes a bearer credential and every cached copy of its identity.
+   *
+   * The ToM server caches the homeserver identity of a credential in
+   * `matrixTokens`. A revoked credential that stays in that cache is still
+   * usable, so the cache entry must be dropped as part of the revocation.
+   *
+   * @param token - The revoked bearer credential.
+   */
+  override async revokeToken(token: string): Promise<void> {
+    await super.revokeToken(token)
+    await this.db.deleteEqual('matrixTokens', 'id', token)
+  }
+
+  /**
    * Sets up the lookup routes with singleton services
    * Must be called after singleton services are created
    * @param {IAddressbookService} addressbookService - The singleton addressbook service
