@@ -301,6 +301,12 @@ async function main(): Promise<void> {
     try {
       if (composeStarted) await compose("down", "--volumes", "--remove-orphans");
     } finally {
+      if (process.platform === "linux" && typeof process.getuid === "function" && typeof process.getgid === "function") {
+        await compose(
+          "run", "--rm", "--user", "root", "--entrypoint", "chown", "synapse-config",
+          "-R", `${process.getuid()}:${process.getgid()}`, "/data",
+        );
+      }
       await rm(dataDirectory, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
     }
   }
