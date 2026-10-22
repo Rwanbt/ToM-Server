@@ -10,6 +10,8 @@ M_UNKNOWN: "An internal error occurred"
 M_SERVICE_UNAVAILABLE: "Service temporarily unavailable"
 M_BAD_GATEWAY: "The upstream service failed to process the request"
 M_UNPROCESSABLE: "The request cannot be processed for this user"
+M_PAYLOAD_TOO_LARGE: "The request payload is too large"
+M_MALFORMED_REQUEST: "The request payload could not be parsed"
 
 # Landing page
 landing.not_found: "The landing page is not available"
