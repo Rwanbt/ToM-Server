@@ -115,6 +115,17 @@ export async function createApp(
     }),
   );
 
+  // --- Health probe (unauthenticated, minimal payload) ---
+  // Dedicated liveness/readiness endpoint for orchestrators and load
+  // balancers. Returns only a status token so it never leaks internals
+  // or secrets. Mounted before the (possibly DB-backed) legacy router
+  // so it keeps answering even when the legacy subsystem is unavailable.
+  app.get("/health", (_req, res) => {
+    res.status(200).json({
+      status: "ok",
+    });
+  });
+
   // --- Telemetry: Prometheus metrics endpoint ---
   // PrometheusExporter provides its own Express-compatible handler.
   // Undefined when telemetry is disabled (e.g., in tests).
