@@ -1,6 +1,7 @@
 import { type TwakeLogger } from '../../../logger/index'
 import { type tokenContent } from '../../../matrix-identity-server/index'
 import { Authenticate as RemoteAuthenticate } from '../../../matrix-identity-server/index'
+import { isRevokedToken } from '../../../matrix-identity-server/utils'
 import { epoch, errMsg, send } from '../../../utils/index'
 import fetch from 'node-fetch'
 import type { AuthenticationFunction, Config, TwakeDB } from '../../types'
@@ -43,8 +44,24 @@ const Authenticate = (
     }
     if (token != null) {
       let hasCachedToken = false
-      db.get('matrixTokens', ['data'], { id: token })
+      // The revocation marker lives in the session store: it must be read
+      // before the identity cache, otherwise a revoked credential would keep
+      // authenticating from the cache.
+      db.get('accessTokens', ['data'], { id: token })
         .then((rows) => {
+          const stored = rows?.[0]?.data
+          if (isRevokedToken(stored)) {
+            // A revoked credential must not authenticate, even when a cached
+            // homeserver identity still exists for it.
+            send(res, 401, errMsg('unAuthorized'))
+            return undefined
+          }
+          return db.get('matrixTokens', ['data'], { id: token })
+        })
+        .then((rows) => {
+          if (rows === undefined) {
+            return
+          }
           const stored = rows?.[0]?.data
           hasCachedToken = typeof stored === 'string'
           if (typeof stored !== 'string') {

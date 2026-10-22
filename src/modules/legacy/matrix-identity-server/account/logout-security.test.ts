@@ -14,7 +14,10 @@ describe('identity logout credential confidentiality', () => {
       db,
       authenticate: (_req: unknown, _res: unknown, next: (content: object, id: string) => void) => {
         next({}, token)
-      }
+      },
+      // The revocation writes the marker in place of the session: a database
+      // failure must be reported to the caller instead of being swallowed.
+      revokeToken: mock(async () => { throw new Error(token) })
     }
     const handler = Logout(identity as never)
     const server = createServer((req, res) => handler(req as never, res))
@@ -28,7 +31,7 @@ describe('identity logout credential confidentiality', () => {
       })
       expect(response.status).toBe(401)
       expect(await response.text()).not.toContain(token)
-      expect(db.deleteEqual).toHaveBeenCalledWith('accessTokens', 'id', token)
+      expect(identity.revokeToken).toHaveBeenCalledWith(token)
       expect(logger.warn).toHaveBeenCalledWith('Unable to delete access token')
       expect(Bun.inspect(logger.warn.mock.calls)).not.toContain(token)
     } finally {

@@ -103,14 +103,17 @@ export async function createApp(
 
   // --- Global middleware (cross-cutting only) ---
   app.use(createCorsMiddleware(config.cors));
+  // The request logger is mounted before the body parsers: a parser rejects
+  // the request before any later middleware runs, and the terminal error
+  // handler still needs the request-scoped logger to report the rejection.
+  app.use(requestId());
+  app.use(httpLogger(logger));
   app.use(express.json());
   app.use(
     express.urlencoded({
       extended: true,
     }),
   );
-  app.use(requestId());
-  app.use(httpLogger(logger));
 
   // --- Telemetry: Prometheus metrics endpoint ---
   // PrometheusExporter provides its own Express-compatible handler.

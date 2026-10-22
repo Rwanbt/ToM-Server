@@ -42,6 +42,21 @@ function getTraceContext(): {
   };
 }
 
+/**
+ * Builds the log-safe request path.
+ *
+ * The query string may carry bearer credentials (the Matrix `access_token`
+ * query parameter) or any other secret supplied by a client, so only the path
+ * is ever written to the logs. Every log line of a request inherits this
+ * value through the child logger metadata.
+ *
+ * @param originalUrl - The raw request URL, query string included.
+ * @returns The URL path without its query string.
+ */
+export function safeRequestPath(originalUrl: string | undefined): string {
+  return originalUrl?.split("?")[0] ?? "";
+}
+
 export function httpLogger(logger: Logger) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const start = performance.now();
@@ -53,7 +68,7 @@ export function httpLogger(logger: Logger) {
       traceId,
       spanId,
       method: req.method,
-      path: req.originalUrl,
+      path: safeRequestPath(req.originalUrl),
     });
 
     // Attach child logger to request for use in routers and services

@@ -12,6 +12,38 @@ export type AuthenticationFunction = (
   requiresTerms?: boolean
 ) => void
 
+/**
+ * Payload stored in place of a session when its bearer credential is revoked.
+ *
+ * A revoked credential is kept as a marker instead of being removed: the
+ * marker carries no subject, so every authentication path rejects it, and no
+ * cached identity can take its place.
+ */
+export const REVOKED_TOKEN_MARKER: string = JSON.stringify({ revoked: true })
+
+/**
+ * Tells whether a stored session payload is a revocation marker.
+ *
+ * @param data - The raw payload of the session row.
+ * @returns `true` when the credential has been revoked.
+ */
+export const isRevokedToken = (data: unknown): boolean => {
+  if (typeof data !== "string") {
+    return false
+  }
+  try {
+    const parsed: unknown = JSON.parse(data)
+    return (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "revoked" in parsed &&
+      (parsed as { revoked?: unknown }).revoked === true
+    )
+  } catch {
+    return false
+  }
+}
+
 export const Authenticate = <T extends string = never>(
   db: IdentityServerDb<T>,
   logger: TwakeLogger

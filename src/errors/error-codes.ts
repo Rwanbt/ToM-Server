@@ -9,6 +9,8 @@ export const ERROR_CODES = [
   "M_SERVICE_UNAVAILABLE",
   "M_BAD_GATEWAY",
   "M_UNPROCESSABLE",
+  "M_PAYLOAD_TOO_LARGE",
+  "M_MALFORMED_REQUEST",
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
@@ -24,3 +26,5 @@ export const INTERNAL: ErrorCode = "M_UNKNOWN";
 export const SERVICE_UNAVAILABLE: ErrorCode = "M_SERVICE_UNAVAILABLE";
 export const BAD_GATEWAY: ErrorCode = "M_BAD_GATEWAY";
 export const UNPROCESSABLE: ErrorCode = "M_UNPROCESSABLE";
+export const PAYLOAD_TOO_LARGE: ErrorCode = "M_PAYLOAD_TOO_LARGE";
+export const MALFORMED_REQUEST: ErrorCode = "M_MALFORMED_REQUEST";

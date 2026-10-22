@@ -8,8 +8,7 @@ const Logout = <T extends string = never>(
   return (req, res) => {
     // @ts-expect-error id is defined here
     idServer.authenticate(req, res, (idToken: tokenContent, id: string) => {
-      idServer.db
-        .deleteEqual('accessTokens', 'id', id)
+      idServer.revokeToken(id)
         .then(() => {
           send(res, 200, {})
         })
