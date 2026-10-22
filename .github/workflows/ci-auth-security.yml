@@ -22,6 +22,8 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Enforce deterministic Bun and blocking lint
         run: node --test ci/toolchain-guard.cjs
+      - name: Enforce exact action pinning in the workflows
+        run: node --test ci/action-pinning.test.cjs
       - name: Exercise real ingress paths with sentinel secrets
         run: |
           bun test --isolate \

@@ -16,12 +16,12 @@ jobs:
       shfmt: ${{ steps.filter.outputs.shfmt }}
       yamllint: ${{ steps.filter.outputs.yamllint }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 100
           persist-credentials: false
 
-      - uses: dorny/paths-filter@v4
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d
         id: filter
         with:
           filters: |
@@ -57,11 +57,11 @@ jobs:
     runs-on: ubuntu-latest
     # Treat real source-formatting violations as blocking regressions.
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
-      - uses: biomejs/setup-biome@v2
+      - uses: biomejs/setup-biome@4c91541eaada48f67d7dbd7833600ce162b68f51
         with:
           version: "2.5.8"
 
@@ -72,7 +72,7 @@ jobs:
     if: needs.detect-changes.outputs.markdownlint == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
@@ -85,11 +85,11 @@ jobs:
     if: needs.detect-changes.outputs.nixfmt == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
-      - uses: nixbuild/nix-quick-install-action@v28
+      - uses: nixbuild/nix-quick-install-action@60e9c39264d4714139af3cdf15f691b19eec3530
 
       - run: nix run nixpkgs#nixfmt-rfc-style -- --check $(find . -name "*.nix")
 
@@ -98,7 +98,7 @@ jobs:
     if: needs.detect-changes.outputs.shfmt == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
@@ -111,7 +111,7 @@ jobs:
     if: needs.detect-changes.outputs.yamllint == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
