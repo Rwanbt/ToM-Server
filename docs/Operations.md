@@ -11,7 +11,7 @@ reference implementation of these procedures.
 A release is a self-contained directory. The deployment keeps the previous
 releases so a rollback never has to rebuild anything.
 
-```
+```text
 <deploy-root>/
   releases/<release-id>/      # immutable release payload + its config.yaml
   current.json                # {"release": "<release-id>"} — the live release
@@ -45,7 +45,7 @@ non-zero status and the error is logged as `Unable to initialize server`.
 ## 3. Health checks
 
 | Signal | Endpoint / source | Meaning |
-|---|---|---|
+| --- | --- | --- |
 | Liveness | process is up | the container/systemd unit is running |
 | Readiness | `GET /_matrix/identity/v2/account` answers `401` without a token | the HTTP stack and the identity database are reachable |
 | Metrics | `GET /metrics` (when `telemetry.enabled` is true) | Prometheus scrape endpoint |
@@ -116,7 +116,7 @@ of production.
 A release is **GO** only when every item below is green:
 
 | # | Criterion | Evidence |
-|---|---|---|
+| --- | --- | --- |
 | 1 | `bun run type-check` is green (TypeScript strict) | CI job `typecheck` at the exact SHA |
 | 2 | `bun test --isolate` is green, with the JUnit artifact published | CI job `full-regression` + artifact `tom-bun-regression-<sha>-attempt-1` |
 | 3 | Biome reports no error | CI job `call-linters / biome` |
