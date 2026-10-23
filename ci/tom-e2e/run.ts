@@ -76,6 +76,8 @@ async function port(service: string, containerPort: number): Promise<number> {
 }
 
 async function configureSynapse(): Promise<void> {
+  const tomConfigPath = path.join(dataDirectory, "tomconfig.yaml");
+  await writeFile(tomConfigPath, "", { mode: 0o644 });
   await compose("run", "--rm", "synapse-config");
   const generateCertificate = `import datetime
 from pathlib import Path
@@ -131,7 +133,7 @@ Path("/data/synapse.key").write_bytes(key.private_bytes(serialization.Encoding.P
     database: { host: "postgres", name: "tom_app", user: "tom", password: databasePassword },
     federation: { is_federated_identity_service: true },
   };
-  await writeFile(path.join(dataDirectory, "tomconfig.yaml"), dump(tomConfig, { lineWidth: -1 }));
+  await writeFile(tomConfigPath, dump(tomConfig, { lineWidth: -1 }));
 }
 
 async function waitForSynapse(baseUrl: string): Promise<void> {
