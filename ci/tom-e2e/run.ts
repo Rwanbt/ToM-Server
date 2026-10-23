@@ -92,6 +92,12 @@ Path("/data/synapse.key").write_bytes(key.private_bytes(serialization.Encoding.P
   await compose("run", "--rm", "--entrypoint", "python", "synapse-config", "-c", generateCertificate);
   await compose("run", "--rm", "--user", "0:0", "--entrypoint", "python", "synapse-config", "-c",
     "import os; os.chmod('/data', 0o755); os.chmod('/data/homeserver.yaml', 0o644); os.chmod('/data/synapse.crt', 0o644)");
+  if (process.getuid && process.getgid) {
+    await compose(
+      "run", "--rm", "--user", "0:0", "--entrypoint", "chown", "synapse-config",
+      `${process.getuid()}:${process.getgid()}`, "/data/homeserver.yaml",
+    );
+  }
   const configPath = path.join(dataDirectory, "homeserver.yaml");
   const config = load(await readFile(configPath, "utf8")) as Record<string, any>;
   config.registration_shared_secret = "tom-e2e-registration-secret";
