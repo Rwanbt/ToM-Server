@@ -112,7 +112,12 @@ describe('legacy ToM login log hygiene', () => {
     }
   })
   it('rejects malformed cached Matrix subjects and checks the authoritative server', async () => {
-    const db = { get: mock(async () => [{ data: JSON.stringify({ sub: 'not-a-matrix-id', epoch: 123 }) }]), insert: mock() }
+    const db = {
+      get: mock(async (table: string) => table === 'accessTokens'
+        ? []
+        : [{ data: JSON.stringify({ sub: 'not-a-matrix-id', epoch: 123 }) }]),
+      insert: mock()
+    }
     const logger = { warn: mock(), error: mock(), debug: mock(), info: mock() }
     const remote = mock(async () => ({ ok: false, json: async () => ({ user_id: '@attacker:example.org' }) }))
     let resolveOutcome!: (outcome: string) => void
@@ -127,7 +132,12 @@ describe('legacy ToM login log hygiene', () => {
     expect(remote).toHaveBeenCalledTimes(1)
   })
   it('revalidates stale cached Matrix tokens instead of bypassing remote revocation', async () => {
-    const db = { get: mock(async () => [{ data: JSON.stringify({ sub: '@alice:example.org', epoch: Date.now() - 3600000 }) }]), insert: mock() }
+    const db = {
+      get: mock(async (table: string) => table === 'accessTokens'
+        ? []
+        : [{ data: JSON.stringify({ sub: '@alice:example.org', epoch: Date.now() - 3600000 }) }]),
+      insert: mock()
+    }
     const logger = { warn: mock(), error: mock(), debug: mock(), info: mock() }
     const remote = mock(async () => ({ ok: false, json: async () => ({ user_id: '@alice:example.org' }) }))
     let finish!: (value: string) => void
@@ -143,7 +153,9 @@ describe('legacy ToM login log hygiene', () => {
   })
   it('renews the timestamp of a stale token only after Matrix whoami succeeds', async () => {
     const db = {
-      get: mock(async () => [{ data: JSON.stringify({ sub: '@alice:example.org', epoch: Date.now() - 3600000 }) }]),
+      get: mock(async (table: string) => table === 'accessTokens'
+        ? []
+        : [{ data: JSON.stringify({ sub: '@alice:example.org', epoch: Date.now() - 3600000 }) }]),
       update: mock(async () => []),
       insert: mock(async () => [])
     }

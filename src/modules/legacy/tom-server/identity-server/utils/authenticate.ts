@@ -56,6 +56,25 @@ const Authenticate = (
             send(res, 401, errMsg('unAuthorized'))
             return undefined
           }
+          if (typeof stored === 'string') {
+            // Registration-issued ToM grants must use the identity server's terms-aware local authorizer.
+            let localSession: unknown
+            try {
+              localSession = JSON.parse(stored)
+            } catch {
+              send(res, 401, errMsg('unAuthorized'))
+              return undefined
+            }
+            if (!localSession || typeof localSession !== 'object' || !('sub' in localSession) ||
+                !validMatrixUserId(localSession.sub) || !('epoch' in localSession) ||
+                typeof localSession.epoch !== 'number' || !Number.isFinite(localSession.epoch) ||
+                localSession.epoch > epoch()) {
+              send(res, 401, errMsg('unAuthorized'))
+              return undefined
+            }
+            remoteAuth(req, res, callback)
+            return undefined
+          }
           return db.get('matrixTokens', ['data'], { id: token })
         })
         .then((rows) => {

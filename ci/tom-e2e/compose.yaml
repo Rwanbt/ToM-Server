@@ -1,0 +1,72 @@
+services:
+  postgres:
+    image: postgres:16-bookworm
+    environment:
+      POSTGRES_USER: tom
+      POSTGRES_PASSWORD: tom-e2e-disposable-password
+      POSTGRES_DB: tom_app
+      POSTGRES_INITDB_ARGS: --locale=C --encoding=UTF8
+    volumes:
+      - tom-postgres-data:/var/lib/postgresql/data
+      - ./init-databases.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tom -d tom_app"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  synapse-config:
+    image: matrixdotorg/synapse:v1.147.1
+    command: ["generate"]
+    environment:
+      SYNAPSE_SERVER_NAME: tom-e2e.test
+      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
+      SYNAPSE_REPORT_STATS: "no"
+    volumes:
+      - type: bind
+        source: ${TOM_E2E_DATA}
+        target: /data
+    entrypoint: ["/start.py"]
+
+  synapse:
+    image: matrixdotorg/synapse:v1.147.1
+    environment:
+      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
+    volumes:
+      - type: bind
+        source: ${TOM_E2E_DATA}
+        target: /data
+    ports:
+      - "127.0.0.1::8008"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      default:
+        aliases: [tom-e2e.test]
+
+  tom:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    environment:
+      NODE_EXTRA_CA_CERTS: /data/synapse.crt
+    volumes:
+      - type: bind
+        source: ${TOM_E2E_DATA}/tomconfig.yaml
+        target: /data/config.yaml
+        read_only: true
+      - type: bind
+        source: ${TOM_E2E_DATA}/synapse.crt
+        target: /data/synapse.crt
+        read_only: true
+    ports:
+      - "127.0.0.1::3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      synapse:
+        condition: service_started
+
+volumes:
+  tom-postgres-data:

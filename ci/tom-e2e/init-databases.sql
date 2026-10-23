@@ -1,0 +1,2 @@
+CREATE DATABASE synapse OWNER tom;
+CREATE DATABASE tom_matrix OWNER tom;
