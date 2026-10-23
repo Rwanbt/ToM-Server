@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { appendFile, copyFile, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { appendFile, copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,6 +17,7 @@ const dockerExecutable = process.platform === "win32"
   ? "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe"
   : "docker";
 const dataDirectory = await mkdtemp(path.join(os.tmpdir(), `${project}-`));
+const backupDirectory = await mkdtemp(path.join(os.tmpdir(), `${project}-backup-`));
 const composeEnvironment = {
   ...process.env,
   TOM_E2E_DATA: dataDirectory.replaceAll("\\", "/"),
@@ -252,8 +253,6 @@ async function main(): Promise<void> {
     const { response: afterRestart } = await json(federatedPath(), { headers: { authorization: `Bearer ${tomToken}` } });
     assert.equal(afterRestart.status, 200, "federated session survives application restart");
 
-    const backupDirectory = path.join(dataDirectory, "backup");
-    await mkdir(backupDirectory);
     const configBackup = path.join(backupDirectory, "tomconfig.yaml");
     const databaseBackup = path.join(backupDirectory, "tom_app.dump");
     const configPath = path.join(dataDirectory, "tomconfig.yaml");
@@ -318,6 +317,7 @@ async function main(): Promise<void> {
         );
       }
       await rm(dataDirectory, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+      await rm(backupDirectory, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
     }
   }
 }
