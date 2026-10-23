@@ -1,0 +1,24 @@
+name: ToM disposable Synapse + PostgreSQL E2E
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  disposable-tom-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: '1.4.3'
+      - run: bun install --frozen-lockfile && bun run ci/tom-e2e/run.ts
+      - name: Remove only this run's Compose project
+        if: ${{ always() && env.TOM_E2E_PROJECT != '' }}
+        run: docker compose -p "$TOM_E2E_PROJECT" -f ci/tom-e2e/compose.yaml down --volumes --remove-orphans

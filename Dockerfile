@@ -11,7 +11,7 @@
 # -----------------------------------------------------------------------------
 # Stage 1 - builder: compile into a standalone binary with bunup
 # -----------------------------------------------------------------------------
-FROM docker.io/oven/bun:debian AS builder
+FROM docker.io/oven/bun:1.4.3-debian AS builder
 
 WORKDIR /app
 
@@ -25,7 +25,7 @@ RUN bunx bunup
 # -----------------------------------------------------------------------------
 # Stage 2 - runtime image: fresh with assets files and binary only
 # -----------------------------------------------------------------------------
-FROM docker.io/debian:stable-slim AS runtime
+FROM docker.io/debian:12-slim AS runtime
 
 WORKDIR /usr/share/twake/chat/tom
 
@@ -39,3 +39,4 @@ RUN mkdir -p /data
 COPY --from=builder /app/bin/tom-server ./
 
 ENTRYPOINT ["./tom-server", "--config", "/data/config.yaml"]
+
